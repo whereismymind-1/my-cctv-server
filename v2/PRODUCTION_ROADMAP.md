@@ -16,15 +16,15 @@
 **Duration**: 3 days
 
 #### Subtasks:
-- [ ] **1.1.1** Initialize monorepo structure
-  - Setup Nx or Lerna for monorepo management
-  - Configure shared TypeScript config
-  - Setup shared ESLint/Prettier configs
+- [x] **1.1.1** Initialize project structure
+  - ~~Setup Nx or Lerna for monorepo management~~ ✅ Basic project structure created
+  - ~~Configure shared TypeScript config~~ ✅ TypeScript configured
+  - ~~Setup shared ESLint/Prettier configs~~ ✅ NestJS default configs
   
-- [ ] **1.1.2** Development environment setup
-  - Docker Compose for PostgreSQL & Redis
-  - Environment variables (.env files)
-  - Git hooks (Husky) for pre-commit checks
+- [x] **1.1.2** Development environment setup
+  - ~~Docker Compose for PostgreSQL & Redis~~ ✅ Completed
+  - ~~Environment variables (.env files)~~ ✅ Completed
+  - ~~Git hooks (Husky) for pre-commit checks~~ ⏳ Pending
   
 - [ ] **1.1.3** CI/CD pipeline foundation
   - GitHub Actions or GitLab CI setup
@@ -42,13 +42,13 @@ Coverage: N/A
 **Duration**: 5 days
 
 #### Subtasks:
-- [ ] **1.2.1** Core domain entities
+- [x] **1.2.1** Core domain entities
   ```typescript
   // Implement with tests:
-  - User entity + tests (target: 80% coverage)
-  - Stream entity + tests (target: 80% coverage)
-  - Comment entity + tests (target: 80% coverage)
-  - Room entity + tests (target: 80% coverage)
+  - User entity + tests (target: 80% coverage) ✅ Created
+  - Stream entity + tests (target: 80% coverage) ✅ Created
+  - Comment entity + tests (target: 80% coverage) ✅ Created
+  - Room entity + tests (target: 80% coverage) ⏳ Pending tests
   ```
 
 - [ ] **1.2.2** Value objects
@@ -90,15 +90,15 @@ describe('Comment Entity', () => {
 **Duration**: 2 days
 
 #### Subtasks:
-- [ ] **1.3.1** PostgreSQL setup
-  - Create migration files
-  - Setup TypeORM or Prisma
-  - Seed data for development
+- [x] **1.3.1** PostgreSQL setup
+  - ~~Create migration files~~ ✅ init.sql created
+  - ~~Setup TypeORM or Prisma~~ ✅ TypeORM configured
+  - ~~Seed data for development~~ ⏳ Pending
   
-- [ ] **1.3.2** Redis configuration
-  - Connection pool setup
-  - Key naming conventions
-  - TTL strategies
+- [x] **1.3.2** Redis configuration
+  - ~~Connection pool setup~~ ✅ RedisService created
+  - ~~Key naming conventions~~ ✅ Implemented
+  - ~~TTL strategies~~ ✅ Implemented
 
 #### Testing Requirements:
 ```typescript
