@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Kido's Universe</title>
+    <style>
+        body { margin:0; overflow:hidden; }
+        canvas { display:block; }
+        #cctv { display:none; }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "/three/build/three.module.js",
+                "three/addons/": "/three/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <img id="cctv" src="/stream" crossorigin="anonymous" />
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        // [추가!] HDRI 파일을 불러오기 위한 전문가, RGBELoader를 가져옵니다.
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+
+        // --- 1. 기본 설정 (장면, 카메라, 렌더러, 컨트롤) ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(2.5, 2.0, 3.5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        // [추가!] 렌더러가 더 사실적인 색상으로 렌더링하도록 설정합니다.
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // --- 2. 3D 배경 설정 (HDRI 로딩) ---
+        // RGBELoader를 사용해서 .hdr 파일을 불러옵니다.
+        new RGBELoader().load('/textures/background.hdr', (texture) => {
+            // [핵심!] 텍스처의 맵핑 방식을 360도 파노라마(Equirectangular)로 설정합니다.
+            texture.mapping = THREE.EquirectangularReflectionMapping;
+
+            // [핵심!] 이 텍스처를 장면의 '배경'과 '환경광'으로 동시에 사용합니다.
+            scene.background = texture; // 눈에 보이는 배경이 됩니다.
+            scene.environment = texture;  // 3D 모델이 반사할 '주변 환경'이 됩니다.
+            
+            console.log('✅ 3D Background and Environment loaded successfully!');
+        });
+
+        // --- 3. CCTV 스크린 재질 생성 ---
+        const cctvImage = document.getElementById('cctv');
+        const videoTexture = new THREE.Texture(cctvImage);
+        const screenMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
+
+        // --- 4. GLB 모델 로드 ---
+        const loader = new GLTFLoader();
+        loader.load('/models/cube_with_screen.glb', (gltf) => {
+            const root = gltf.scene;
+
+            // [수정됨!] 모델의 모든 재질이 환경광을 반사하도록 변경합니다.
+            root.traverse((child) => {
+                if (child.isMesh) {
+                    // MeshBasicMaterial은 빛의 영향을 받지 않으므로, MeshStandardMaterial로 교체하면 좋습니다.
+                    // 만약 모델의 기본 재질이 빛을 반사하지 않는다면 이 부분을 활성화해보세요.
+                    // if (child.material && !(child.material.name === "ScreenMaterial")) {
+                    //    child.material = new THREE.MeshStandardMaterial({
+                    //        roughness: 0.2,
+                    //        metalness: 0.8,
+                    //        color: child.material.color 
+                    //    });
+                    // }
+                }
+            });
+            
+            // "Screen" 이라는 이름의 메쉬를 찾아 스크린 재질을 적용합니다.
+            const screen = root.getObjectByName('Screen');
+            if (screen && screen.isMesh) {
+                screen.material = screenMaterial;
+            } else {
+                // 만약 이름으로 못 찾는다면, 이전의 재질 인덱스 방식으로 시도할 수 있습니다.
+                console.warn("Mesh with name 'Screen' not found. Trying material index fallback.");
+                root.traverse((child) => {
+                    if (child.isMesh && Array.isArray(child.material) && child.material.length > 5) {
+                        child.material[5] = screenMaterial;
+                    }
+                });
+            }
+            scene.add(root);
+            window.myModel = root;
+        });
+
+        // --- 5. 애니메이션 루프 ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            if (videoTexture) videoTexture.needsUpdate = true;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // --- 6. 리사이즈 대응 ---
+        window.addEventListener('resize', () => { /* ... 이전과 동일 ... */ });
+    </script>
+</body>
+</html>
