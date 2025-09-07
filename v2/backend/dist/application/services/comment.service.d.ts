@@ -1,0 +1,20 @@
+import { ICommentRepository } from '../../domain/repositories/comment.repository.interface';
+import { IStreamRepository } from '../../domain/repositories/stream.repository.interface';
+import { RedisService } from '../../infrastructure/redis/redis.service';
+import { SendCommentDto, CommentResponseDto } from '../dto/comment.dto';
+export declare class CommentService {
+    private readonly commentRepository;
+    private readonly streamRepository;
+    private readonly redisService;
+    private laneManager;
+    private commentValidator;
+    constructor(commentRepository: ICommentRepository, streamRepository: IStreamRepository, redisService: RedisService);
+    sendComment(userId: string | null, username: string, dto: SendCommentDto): Promise<CommentResponseDto>;
+    getComments(streamId: string, limit?: number, offset?: number): Promise<{
+        comments: CommentResponseDto[];
+        total: number;
+    }>;
+    getRecentComments(streamId: string): Promise<CommentResponseDto[]>;
+    deleteComment(commentId: string, userId: string): Promise<void>;
+    private toResponseDto;
+}

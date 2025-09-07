@@ -16,6 +16,28 @@ export enum StreamStatus {
   ENDED = 'ended',
 }
 
+export class StreamSettingsDto {
+  @IsBoolean()
+  @IsOptional()
+  allowComments?: boolean;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(60000)
+  commentCooldown?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  @Max(500)
+  maxCommentLength?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  allowAnonymous?: boolean;
+}
+
 export class CreateStreamDto {
   @IsString()
   @MinLength(1)
@@ -32,27 +54,7 @@ export class CreateStreamDto {
   thumbnail?: string;
 
   @IsOptional()
-  settings?: {
-    @IsBoolean()
-    @IsOptional()
-    allowComments?: boolean;
-
-    @IsNumber()
-    @IsOptional()
-    @Min(0)
-    @Max(60000)
-    commentCooldown?: number;
-
-    @IsNumber()
-    @IsOptional()
-    @Min(1)
-    @Max(500)
-    maxCommentLength?: number;
-
-    @IsBoolean()
-    @IsOptional()
-    allowAnonymous?: boolean;
-  };
+  settings?: StreamSettingsDto;
 }
 
 export class UpdateStreamDto {
@@ -72,27 +74,7 @@ export class UpdateStreamDto {
   thumbnail?: string;
 
   @IsOptional()
-  settings?: {
-    @IsBoolean()
-    @IsOptional()
-    allowComments?: boolean;
-
-    @IsNumber()
-    @IsOptional()
-    @Min(0)
-    @Max(60000)
-    commentCooldown?: number;
-
-    @IsNumber()
-    @IsOptional()
-    @Min(1)
-    @Max(500)
-    maxCommentLength?: number;
-
-    @IsBoolean()
-    @IsOptional()
-    allowAnonymous?: boolean;
-  };
+  settings?: StreamSettingsDto;
 }
 
 export class StreamQueryDto {
