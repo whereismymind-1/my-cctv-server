@@ -8,6 +8,7 @@ import { StreamModule } from './stream/stream.module';
 import { CommentModule } from './comment/comment.module';
 import { RedisModule } from './infrastructure/redis/redis.module';
 import { getDatabaseConfig } from './infrastructure/config/database.config';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { getDatabaseConfig } from './infrastructure/config/database.config';
     AuthModule,
     StreamModule,
     CommentModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

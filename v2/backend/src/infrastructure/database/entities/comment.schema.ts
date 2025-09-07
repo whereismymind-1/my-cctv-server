@@ -37,7 +37,7 @@ export class CommentEntity {
   @Column({ length: 50, nullable: true })
   command: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'bigint', nullable: true })
   vpos: number; // Video position in milliseconds
 
   @CreateDateColumn({ name: 'created_at' })

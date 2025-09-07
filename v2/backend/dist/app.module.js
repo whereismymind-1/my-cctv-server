@@ -17,6 +17,7 @@ const stream_module_1 = require("./stream/stream.module");
 const comment_module_1 = require("./comment/comment.module");
 const redis_module_1 = require("./infrastructure/redis/redis.module");
 const database_config_1 = require("./infrastructure/config/database.config");
+const health_module_1 = require("./health/health.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -36,6 +37,7 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             stream_module_1.StreamModule,
             comment_module_1.CommentModule,
+            health_module_1.HealthModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
