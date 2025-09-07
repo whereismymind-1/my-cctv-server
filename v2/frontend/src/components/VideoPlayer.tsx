@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import CommentOverlay from './CommentOverlay';
+import CanvasCommentOverlay from './CanvasCommentOverlay';
 import { Comment } from '../types';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 
@@ -131,8 +131,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           </div>
         )}
 
-        {/* Comment Overlay */}
-        <CommentOverlay
+        {/* Comment Overlay - Using Canvas for better performance */}
+        <CanvasCommentOverlay
           comments={comments}
           width={containerRef.current?.clientWidth || 1280}
           height={containerRef.current?.clientHeight || 720}

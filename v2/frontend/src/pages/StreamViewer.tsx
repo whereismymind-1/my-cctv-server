@@ -4,12 +4,14 @@ import { Send, Users, Heart, MessageCircle } from 'lucide-react';
 import VideoPlayer from '../components/VideoPlayer';
 import { useStreamStore } from '../stores/streamStore';
 import { useAuthStore } from '../stores/authStore';
+import { PerformanceMonitor } from '../hooks/usePerformanceMonitor';
 
 const StreamViewer: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [commentText, setCommentText] = useState('');
   const [commentCommand, setCommentCommand] = useState('');
   const [showCommands, setShowCommands] = useState(false);
+  const [showPerformance, setShowPerformance] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -78,6 +80,17 @@ const StreamViewer: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {/* Performance Monitor */}
+      <PerformanceMonitor show={showPerformance} />
+      
+      {/* Toggle Performance Monitor Button */}
+      <button
+        onClick={() => setShowPerformance(!showPerformance)}
+        className="fixed top-4 left-4 z-50 px-3 py-1 bg-black/50 text-white text-xs rounded hover:bg-black/70 transition"
+      >
+        {showPerformance ? 'Hide' : 'Show'} Stats
+      </button>
+      
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Video Player Section */}
