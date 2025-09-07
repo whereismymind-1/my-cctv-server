@@ -11,6 +11,7 @@ import { IStreamRepository } from '../../domain/repositories/stream.repository.i
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import { LaneManager } from '../../domain/services/lane-manager.service';
 import { CommentValidator } from '../../domain/services/comment-validator.service';
+import { ModerationService } from './moderation.service';
 import { SendCommentDto, CommentResponseDto } from '../dto/comment.dto';
 
 @Injectable()
@@ -24,6 +25,7 @@ export class CommentService {
     @Inject('IStreamRepository')
     private readonly streamRepository: IStreamRepository,
     private readonly redisService: RedisService,
+    private readonly moderationService: ModerationService,
   ) {
     this.laneManager = new LaneManager();
     this.commentValidator = new CommentValidator();
@@ -60,6 +62,19 @@ export class CommentService {
       if (!canSend) {
         throw new BadRequestException('Too many comments. Please wait.');
       }
+    }
+
+    // Moderate comment content
+    const moderationResult = await this.moderationService.moderateComment(
+      dto.text,
+      userId,
+      dto.streamId,
+    );
+    
+    if (!moderationResult.isAllowed) {
+      throw new BadRequestException(
+        moderationResult.reason || 'Comment not allowed'
+      );
     }
 
     // Validate comment text

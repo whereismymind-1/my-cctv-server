@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { CommentService } from '../../application/services/comment.service';
 import { StreamService } from '../../application/services/stream.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
+import { AnalyticsService } from '../../application/services/analytics.service';
 import { SendCommentDto } from '../../application/dto/comment.dto';
 interface AuthenticatedSocket extends Socket {
     userId?: string;
@@ -14,9 +15,10 @@ export declare class CommentGateway implements OnGatewayConnection, OnGatewayDis
     private readonly commentService;
     private readonly streamService;
     private readonly redisService;
+    private readonly analyticsService;
     private readonly jwtService;
     server: Server;
-    constructor(commentService: CommentService, streamService: StreamService, redisService: RedisService, jwtService: JwtService);
+    constructor(commentService: CommentService, streamService: StreamService, redisService: RedisService, analyticsService: AnalyticsService, jwtService: JwtService);
     handleConnection(client: AuthenticatedSocket): Promise<void>;
     handleDisconnect(client: AuthenticatedSocket): Promise<void>;
     handleJoinRoom(client: AuthenticatedSocket, data: {

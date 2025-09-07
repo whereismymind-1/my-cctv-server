@@ -18,6 +18,8 @@ const comment_module_1 = require("./comment/comment.module");
 const redis_module_1 = require("./infrastructure/redis/redis.module");
 const database_config_1 = require("./infrastructure/config/database.config");
 const health_module_1 = require("./health/health.module");
+const moderation_module_1 = require("./moderation/moderation.module");
+const analytics_module_1 = require("./analytics/analytics.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -38,6 +40,8 @@ exports.AppModule = AppModule = __decorate([
             stream_module_1.StreamModule,
             comment_module_1.CommentModule,
             health_module_1.HealthModule,
+            moderation_module_1.ModerationModule,
+            analytics_module_1.AnalyticsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

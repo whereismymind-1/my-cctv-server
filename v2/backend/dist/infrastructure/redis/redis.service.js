@@ -122,6 +122,64 @@ let RedisService = class RedisService {
         const key = `cache:stream:${streamId}`;
         await this.client.del(key);
     }
+    async blockUser(userId, until) {
+        const key = `blocked:${userId}`;
+        await this.client.set(key, until.toISOString(), 'EX', Math.floor((until.getTime() - Date.now()) / 1000));
+    }
+    async unblockUser(userId) {
+        const key = `blocked:${userId}`;
+        await this.client.del(key);
+    }
+    async getBlockedUsers() {
+        const keys = await this.client.keys('blocked:*');
+        if (keys.length === 0)
+            return null;
+        const users = [];
+        for (const key of keys) {
+            const userId = key.replace('blocked:', '');
+            const blockedUntil = await this.client.get(key);
+            if (blockedUntil) {
+                users.push({ userId, blockedUntil });
+            }
+        }
+        return users;
+    }
+    async incrementWithExpiry(key, expiry) {
+        const current = await this.client.incr(key);
+        if (current === 1) {
+            await this.client.expire(key, expiry);
+        }
+        return current;
+    }
+    async getRecentUserMessages(key) {
+        const messages = await this.client.lrange(key, 0, -1);
+        return messages;
+    }
+    async addRecentUserMessage(key, message, ttl) {
+        await this.client.lpush(key, message);
+        await this.client.ltrim(key, 0, 9);
+        await this.client.expire(key, ttl);
+    }
+    async addReport(report) {
+        const key = 'reports:queue';
+        await this.client.lpush(key, JSON.stringify(report));
+        await this.client.expire(key, 86400);
+    }
+    async getReportCount() {
+        const key = 'reports:queue';
+        return await this.client.llen(key);
+    }
+    async getRecentMessages(userId, streamId, limit) {
+        const key = `recent:${userId}:${streamId}`;
+        const messages = await this.client.lrange(key, 0, limit - 1);
+        return messages;
+    }
+    async addRecentMessage(userId, streamId, message) {
+        const key = `recent:${userId}:${streamId}`;
+        await this.client.lpush(key, message);
+        await this.client.ltrim(key, 0, 9);
+        await this.client.expire(key, 300);
+    }
     getClient() {
         return this.client;
     }

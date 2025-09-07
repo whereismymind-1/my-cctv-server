@@ -25,5 +25,23 @@ export declare class RedisService implements OnModuleInit, OnModuleDestroy {
     cacheStream(streamId: string, data: any, ttl?: number): Promise<void>;
     getCachedStream(streamId: string): Promise<any | null>;
     invalidateStreamCache(streamId: string): Promise<void>;
+    blockUser(userId: string, until: Date): Promise<void>;
+    unblockUser(userId: string): Promise<void>;
+    getBlockedUsers(): Promise<Array<{
+        userId: string;
+        blockedUntil: string;
+    }> | null>;
+    incrementWithExpiry(key: string, expiry: number): Promise<number>;
+    getRecentUserMessages(key: string): Promise<string[]>;
+    addRecentUserMessage(key: string, message: string, ttl: number): Promise<void>;
+    addReport(report: {
+        commentId: string;
+        reporterId: string;
+        reason: string;
+        timestamp: Date;
+    }): Promise<void>;
+    getReportCount(): Promise<number>;
+    getRecentMessages(userId: string, streamId: string, limit: number): Promise<string[]>;
+    addRecentMessage(userId: string, streamId: string, message: string): Promise<void>;
     getClient(): Redis;
 }

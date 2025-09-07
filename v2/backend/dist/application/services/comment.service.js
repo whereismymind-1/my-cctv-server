@@ -18,11 +18,13 @@ const comment_entity_1 = require("../../domain/entities/comment.entity");
 const redis_service_1 = require("../../infrastructure/redis/redis.service");
 const lane_manager_service_1 = require("../../domain/services/lane-manager.service");
 const comment_validator_service_1 = require("../../domain/services/comment-validator.service");
+const moderation_service_1 = require("./moderation.service");
 let CommentService = class CommentService {
-    constructor(commentRepository, streamRepository, redisService) {
+    constructor(commentRepository, streamRepository, redisService, moderationService) {
         this.commentRepository = commentRepository;
         this.streamRepository = streamRepository;
         this.redisService = redisService;
+        this.moderationService = moderationService;
         this.laneManager = new lane_manager_service_1.LaneManager();
         this.commentValidator = new comment_validator_service_1.CommentValidator();
     }
@@ -42,6 +44,10 @@ let CommentService = class CommentService {
             if (!canSend) {
                 throw new common_1.BadRequestException('Too many comments. Please wait.');
             }
+        }
+        const moderationResult = await this.moderationService.moderateComment(dto.text, userId, dto.streamId);
+        if (!moderationResult.isAllowed) {
+            throw new common_1.BadRequestException(moderationResult.reason || 'Comment not allowed');
         }
         const validation = this.commentValidator.validate(dto.text);
         if (!validation.isValid) {
@@ -118,6 +124,7 @@ exports.CommentService = CommentService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Inject)('ICommentRepository')),
     __param(1, (0, common_1.Inject)('IStreamRepository')),
-    __metadata("design:paramtypes", [Object, Object, redis_service_1.RedisService])
+    __metadata("design:paramtypes", [Object, Object, redis_service_1.RedisService,
+        moderation_service_1.ModerationService])
 ], CommentService);
 //# sourceMappingURL=comment.service.js.map

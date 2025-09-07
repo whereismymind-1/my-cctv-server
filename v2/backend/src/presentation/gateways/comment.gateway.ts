@@ -14,6 +14,7 @@ import { JwtService } from '@nestjs/jwt';
 import { CommentService } from '../../application/services/comment.service';
 import { StreamService } from '../../application/services/stream.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
+import { AnalyticsService } from '../../application/services/analytics.service';
 import { SendCommentDto } from '../../application/dto/comment.dto';
 
 interface AuthenticatedSocket extends Socket {
@@ -37,6 +38,7 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
     private readonly commentService: CommentService,
     private readonly streamService: StreamService,
     private readonly redisService: RedisService,
+    private readonly analyticsService: AnalyticsService,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -95,11 +97,17 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
       client.currentRoom = streamId;
 
       // Add viewer to Redis
-      if (client.userId) {
-        await this.redisService.addViewer(streamId, client.userId);
-      } else {
-        await this.redisService.addViewer(streamId, client.id);
-      }
+      const viewerId = client.userId || client.id;
+      await this.redisService.addViewer(streamId, viewerId);
+
+      // Track analytics event
+      await this.analyticsService.trackViewerEvent({
+        userId: client.userId || null,
+        streamId,
+        event: 'join',
+        timestamp: new Date(),
+        metadata: { socketId: client.id },
+      });
 
       // Get current viewer count
       const viewerCount = await this.redisService.getViewerCount(streamId);
@@ -150,11 +158,17 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
       await client.leave(streamId);
       
       // Remove viewer from Redis
-      if (client.userId) {
-        await this.redisService.removeViewer(streamId, client.userId);
-      } else {
-        await this.redisService.removeViewer(streamId, client.id);
-      }
+      const viewerId = client.userId || client.id;
+      await this.redisService.removeViewer(streamId, viewerId);
+
+      // Track analytics event
+      await this.analyticsService.trackViewerEvent({
+        userId: client.userId || null,
+        streamId,
+        event: 'leave',
+        timestamp: new Date(),
+        metadata: { socketId: client.id },
+      });
 
       // Get updated viewer count
       const viewerCount = await this.redisService.getViewerCount(streamId);
@@ -189,6 +203,19 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
         client.username || 'Anonymous',
         data,
       );
+
+      // Track analytics event
+      await this.analyticsService.trackViewerEvent({
+        userId: client.userId || null,
+        streamId: data.streamId,
+        event: 'comment',
+        timestamp: new Date(),
+        metadata: { 
+          commentId: comment.id,
+          text: data.text,
+          command: data.command,
+        },
+      });
 
       // Broadcast to all users in the room
       this.server.to(data.streamId).emit('new_comment', comment);

@@ -154,6 +154,75 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     await this.client.del(key);
   }
 
+  // Moderation features
+  async blockUser(userId: string, until: Date): Promise<void> {
+    const key = `blocked:${userId}`;
+    await this.client.set(key, until.toISOString(), 'EX', Math.floor((until.getTime() - Date.now()) / 1000));
+  }
+
+  async unblockUser(userId: string): Promise<void> {
+    const key = `blocked:${userId}`;
+    await this.client.del(key);
+  }
+
+  async getBlockedUsers(): Promise<Array<{ userId: string; blockedUntil: string }> | null> {
+    const keys = await this.client.keys('blocked:*');
+    if (keys.length === 0) return null;
+    
+    const users = [];
+    for (const key of keys) {
+      const userId = key.replace('blocked:', '');
+      const blockedUntil = await this.client.get(key);
+      if (blockedUntil) {
+        users.push({ userId, blockedUntil });
+      }
+    }
+    return users;
+  }
+
+  async incrementWithExpiry(key: string, expiry: number): Promise<number> {
+    const current = await this.client.incr(key);
+    if (current === 1) {
+      await this.client.expire(key, expiry);
+    }
+    return current;
+  }
+
+  async getRecentUserMessages(key: string): Promise<string[]> {
+    const messages = await this.client.lrange(key, 0, -1);
+    return messages;
+  }
+
+  async addRecentUserMessage(key: string, message: string, ttl: number): Promise<void> {
+    await this.client.lpush(key, message);
+    await this.client.ltrim(key, 0, 9); // Keep last 10 messages
+    await this.client.expire(key, ttl);
+  }
+
+  async addReport(report: { commentId: string; reporterId: string; reason: string; timestamp: Date }): Promise<void> {
+    const key = 'reports:queue';
+    await this.client.lpush(key, JSON.stringify(report));
+    await this.client.expire(key, 86400); // Keep for 24 hours
+  }
+
+  async getReportCount(): Promise<number> {
+    const key = 'reports:queue';
+    return await this.client.llen(key);
+  }
+
+  async getRecentMessages(userId: string, streamId: string, limit: number): Promise<string[]> {
+    const key = `recent:${userId}:${streamId}`;
+    const messages = await this.client.lrange(key, 0, limit - 1);
+    return messages;
+  }
+
+  async addRecentMessage(userId: string, streamId: string, message: string): Promise<void> {
+    const key = `recent:${userId}:${streamId}`;
+    await this.client.lpush(key, message);
+    await this.client.ltrim(key, 0, 9); // Keep last 10 messages
+    await this.client.expire(key, 300); // 5 minutes
+  }
+
   // Generic methods
   getClient(): Redis {
     return this.client;

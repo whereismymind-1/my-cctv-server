@@ -19,12 +19,14 @@ const jwt_1 = require("@nestjs/jwt");
 const comment_service_1 = require("../../application/services/comment.service");
 const stream_service_1 = require("../../application/services/stream.service");
 const redis_service_1 = require("../../infrastructure/redis/redis.service");
+const analytics_service_1 = require("../../application/services/analytics.service");
 const comment_dto_1 = require("../../application/dto/comment.dto");
 let CommentGateway = class CommentGateway {
-    constructor(commentService, streamService, redisService, jwtService) {
+    constructor(commentService, streamService, redisService, analyticsService, jwtService) {
         this.commentService = commentService;
         this.streamService = streamService;
         this.redisService = redisService;
+        this.analyticsService = analyticsService;
         this.jwtService = jwtService;
     }
     async handleConnection(client) {
@@ -66,12 +68,15 @@ let CommentGateway = class CommentGateway {
             }
             await client.join(streamId);
             client.currentRoom = streamId;
-            if (client.userId) {
-                await this.redisService.addViewer(streamId, client.userId);
-            }
-            else {
-                await this.redisService.addViewer(streamId, client.id);
-            }
+            const viewerId = client.userId || client.id;
+            await this.redisService.addViewer(streamId, viewerId);
+            await this.analyticsService.trackViewerEvent({
+                userId: client.userId || null,
+                streamId,
+                event: 'join',
+                timestamp: new Date(),
+                metadata: { socketId: client.id },
+            });
             const viewerCount = await this.redisService.getViewerCount(streamId);
             await this.streamService.updateViewerCount(streamId, viewerCount);
             client.emit('room_joined', {
@@ -103,12 +108,15 @@ let CommentGateway = class CommentGateway {
         try {
             const { streamId } = data;
             await client.leave(streamId);
-            if (client.userId) {
-                await this.redisService.removeViewer(streamId, client.userId);
-            }
-            else {
-                await this.redisService.removeViewer(streamId, client.id);
-            }
+            const viewerId = client.userId || client.id;
+            await this.redisService.removeViewer(streamId, viewerId);
+            await this.analyticsService.trackViewerEvent({
+                userId: client.userId || null,
+                streamId,
+                event: 'leave',
+                timestamp: new Date(),
+                metadata: { socketId: client.id },
+            });
             const viewerCount = await this.redisService.getViewerCount(streamId);
             await this.streamService.updateViewerCount(streamId, viewerCount);
             this.server.to(streamId).emit('viewer_count', {
@@ -125,6 +133,17 @@ let CommentGateway = class CommentGateway {
     async handleSendComment(client, data) {
         try {
             const comment = await this.commentService.sendComment(client.userId ?? null, client.username || 'Anonymous', data);
+            await this.analyticsService.trackViewerEvent({
+                userId: client.userId || null,
+                streamId: data.streamId,
+                event: 'comment',
+                timestamp: new Date(),
+                metadata: {
+                    commentId: comment.id,
+                    text: data.text,
+                    command: data.command,
+                },
+            });
             this.server.to(data.streamId).emit('new_comment', comment);
             client.emit('comment_sent', {
                 success: true,
@@ -211,6 +230,7 @@ exports.CommentGateway = CommentGateway = __decorate([
     __metadata("design:paramtypes", [comment_service_1.CommentService,
         stream_service_1.StreamService,
         redis_service_1.RedisService,
+        analytics_service_1.AnalyticsService,
         jwt_1.JwtService])
 ], CommentGateway);
 //# sourceMappingURL=comment.gateway.js.map
