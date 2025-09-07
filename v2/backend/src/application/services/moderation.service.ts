@@ -1,5 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { RedisService } from '../../infrastructure/redis/redis.service';
+import { ModerationDomainService } from '../../domain/services/moderation-domain.service';
+import { ICacheRepository } from '../../domain/repositories/cache.repository.interface';
 
 interface ModerationResult {
   isAllowed: boolean;
@@ -8,84 +9,36 @@ interface ModerationResult {
   suggestedAction?: 'warn' | 'mute' | 'ban';
 }
 
-interface UserViolation {
-  userId: string;
-  count: number;
-  lastViolation: Date;
-  severity: 'low' | 'medium' | 'high';
-}
-
+/**
+ * Moderation Application Service (Refactored)
+ * - No in-memory state (stateless, scalable)
+ * - Depends on abstractions, not implementations
+ * - Orchestrates domain services
+ */
 @Injectable()
 export class ModerationService {
-  private bannedWords: Set<string>;
-  private spamPatterns: RegExp[];
-  private blockedUsers: Map<string, Date>;
-  private userViolations: Map<string, UserViolation>;
-
+  private static readonly BLOCKED_USERS_KEY = 'blocked_users';
+  private static readonly VIOLATIONS_PREFIX = 'violations:';
+  private static readonly RECENT_MESSAGES_PREFIX = 'recent:';
+  private static readonly REPORTS_KEY = 'moderation:reports';
+  
   constructor(
-    private readonly redisService: RedisService,
-  ) {
-    this.initializeBannedWords();
-    this.initializeSpamPatterns();
-    this.blockedUsers = new Map();
-    this.userViolations = new Map();
-    // Delay loading blocked users to ensure Redis is initialized
-    setTimeout(() => this.loadBlockedUsersFromRedis(), 100);
-  }
-
-  private initializeBannedWords() {
-    // Initialize with common inappropriate words (keeping it PG for this example)
-    this.bannedWords = new Set([
-      // Add actual banned words in production
-      'spam',
-      'scam',
-      'hack',
-      'cheat',
-      'exploit',
-      // Japanese inappropriate words
-      'バカ',
-      'アホ',
-      // Add more as needed
-    ]);
-  }
-
-  private initializeSpamPatterns() {
-    this.spamPatterns = [
-      // URL spam
-      /https?:\/\/[^\s]+/gi,
-      // Repeated characters (more than 10)
-      /(.)\1{10,}/g,
-      // All caps messages (more than 20 chars)
-      /^[A-Z\s]{20,}$/,
-      // Number spam
-      /^\d{10,}$/,
-      // Discord/Telegram invite links
-      /discord\.gg\/[a-zA-Z0-9]+/gi,
-      /t\.me\/[a-zA-Z0-9]+/gi,
-      // Email addresses (potential phishing)
-      /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
-    ];
-  }
-
-  async loadBlockedUsersFromRedis() {
-    const blocked = await this.redisService.getBlockedUsers();
-    if (blocked) {
-      blocked.forEach(user => {
-        this.blockedUsers.set(user.userId, new Date(user.blockedUntil));
-      });
-    }
-  }
+    @Inject('CACHE_REPOSITORY')
+    private readonly cacheRepository: ICacheRepository,
+    private readonly moderationDomainService: ModerationDomainService,
+  ) {}
 
   /**
    * Check if a comment should be allowed
+   * Orchestrates domain logic with infrastructure
    */
   async moderateComment(
     text: string,
     userId: string | null,
     streamId: string,
   ): Promise<ModerationResult> {
-    // Check if user is blocked
-    if (userId && this.isUserBlocked(userId)) {
+    // Check if user is blocked (from cache, not memory)
+    if (userId && await this.isUserBlocked(userId)) {
       return {
         isAllowed: false,
         reason: 'User is blocked',
@@ -93,235 +46,166 @@ export class ModerationService {
       };
     }
 
-    // Check for banned words
-    const bannedWordCheck = this.checkBannedWords(text);
-    if (!bannedWordCheck.isAllowed) {
-      this.recordViolation(userId, 'medium');
-      return bannedWordCheck;
-    }
-
-    // Check for spam patterns
-    const spamCheck = this.checkSpamPatterns(text);
-    if (!spamCheck.isAllowed) {
-      this.recordViolation(userId, 'low');
-      return spamCheck;
-    }
-
-    // Check rate limiting (flood protection)
-    if (userId) {
-      const floodCheck = await this.checkFloodProtection(userId, streamId);
-      if (!floodCheck.isAllowed) {
-        this.recordViolation(userId, 'low');
-        return floodCheck;
-      }
-    }
-
-    // Check message similarity (prevent copy-paste spam)
-    const similarityCheck = await this.checkMessageSimilarity(text, userId, streamId);
-    if (!similarityCheck.isAllowed) {
-      this.recordViolation(userId, 'low');
-      return similarityCheck;
-    }
-
-    return { isAllowed: true };
-  }
-
-  /**
-   * Check for banned words
-   */
-  private checkBannedWords(text: string): ModerationResult {
-    const lowerText = text.toLowerCase();
+    // Use domain service for content analysis
+    const hasBannedWords = this.moderationDomainService.containsBannedWords(text);
+    const isSpam = this.moderationDomainService.isSpam(text);
     
-    for (const word of this.bannedWords) {
-      if (lowerText.includes(word.toLowerCase())) {
-        return {
-          isAllowed: false,
-          reason: 'Message contains inappropriate content',
-          severity: 'medium',
-          suggestedAction: 'warn',
-        };
-      }
-    }
-
-    return { isAllowed: true };
-  }
-
-  /**
-   * Check for spam patterns
-   */
-  private checkSpamPatterns(text: string): ModerationResult {
-    for (const pattern of this.spamPatterns) {
-      if (pattern.test(text)) {
-        return {
-          isAllowed: false,
-          reason: 'Message appears to be spam',
-          severity: 'low',
-          suggestedAction: 'warn',
-        };
-      }
-    }
-
-    return { isAllowed: true };
-  }
-
-  /**
-   * Check flood protection
-   */
-  private async checkFloodProtection(
-    userId: string,
-    streamId: string,
-  ): Promise<ModerationResult> {
-    const key = `flood:${userId}:${streamId}`;
-    const count = await this.redisService.incrementWithExpiry(key, 60); // 1 minute window
+    // Check for flooding using cache
+    const isFlooding = userId ? await this.checkFlooding(userId, streamId, text) : false;
     
-    if (count > 10) { // More than 10 messages per minute
+    // Get violation count from cache
+    const violationCount = userId ? await this.getViolationCount(userId) : 0;
+    
+    // Domain logic for severity
+    const severity = this.moderationDomainService.determineSeverity(
+      hasBannedWords,
+      isSpam,
+      0,
+      violationCount,
+    );
+
+    if (hasBannedWords) {
+      if (userId) await this.recordViolation(userId, 'banned_words', streamId);
       return {
         isAllowed: false,
-        reason: 'Sending messages too quickly',
-        severity: 'low',
-        suggestedAction: 'warn',
+        reason: this.moderationDomainService.getModerationReason(true, false, false, false),
+        severity,
       };
     }
 
-    return { isAllowed: true };
-  }
-
-  /**
-   * Check message similarity to prevent copy-paste spam
-   */
-  private async checkMessageSimilarity(
-    text: string,
-    userId: string | null,
-    streamId: string,
-  ): Promise<ModerationResult> {
-    if (!userId) return { isAllowed: true };
-
-    const key = `recent:${userId}:${streamId}`;
-    const recentMessages = await this.redisService.getRecentUserMessages(key);
-    
-    if (recentMessages && recentMessages.length > 0) {
-      const similarCount = recentMessages.filter(msg => 
-        this.calculateSimilarity(msg, text) > 0.8
-      ).length;
-
-      if (similarCount >= 3) { // 3 or more similar messages
-        return {
-          isAllowed: false,
-          reason: 'Duplicate message detected',
-          severity: 'low',
-          suggestedAction: 'warn',
-        };
-      }
+    if (isSpam) {
+      if (userId) await this.recordViolation(userId, 'spam', streamId);
+      return {
+        isAllowed: false,
+        reason: this.moderationDomainService.getModerationReason(false, true, false, false),
+        severity,
+      };
     }
 
-    // Store this message for future comparison
-    await this.redisService.addRecentUserMessage(key, text, 300); // Keep for 5 minutes
+    if (isFlooding) {
+      if (userId) await this.recordViolation(userId, 'flooding', streamId);
+      return {
+        isAllowed: false,
+        reason: this.moderationDomainService.getModerationReason(false, false, true, false),
+        severity,
+      };
+    }
+
+    // Store message for future flood detection
+    if (userId) {
+      await this.storeRecentMessage(userId, streamId, text);
+    }
 
     return { isAllowed: true };
   }
 
   /**
-   * Calculate similarity between two strings (0-1)
+   * Check if user is blocked (from cache, not memory)
    */
-  private calculateSimilarity(str1: string, str2: string): number {
-    const longer = str1.length > str2.length ? str1 : str2;
-    const shorter = str1.length > str2.length ? str2 : str1;
+  private async isUserBlocked(userId: string): Promise<boolean> {
+    const blockedUntil = await this.cacheRepository.get(`blocked:${userId}`);
+    if (!blockedUntil) return false;
     
-    if (longer.length === 0) return 1.0;
-    
-    const editDistance = this.levenshteinDistance(longer, shorter);
-    return (longer.length - editDistance) / longer.length;
-  }
-
-  /**
-   * Calculate Levenshtein distance between two strings
-   */
-  private levenshteinDistance(str1: string, str2: string): number {
-    const matrix = [];
-    
-    for (let i = 0; i <= str2.length; i++) {
-      matrix[i] = [i];
-    }
-    
-    for (let j = 0; j <= str1.length; j++) {
-      matrix[0][j] = j;
-    }
-    
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1, // substitution
-            matrix[i][j - 1] + 1,     // insertion
-            matrix[i - 1][j] + 1      // deletion
-          );
-        }
-      }
-    }
-    
-    return matrix[str2.length][str1.length];
-  }
-
-  /**
-   * Block a user
-   */
-  async blockUser(userId: string, duration: number = 3600000): Promise<void> {
-    const until = new Date(Date.now() + duration);
-    this.blockedUsers.set(userId, until);
-    await this.redisService.blockUser(userId, until);
-  }
-
-  /**
-   * Unblock a user
-   */
-  async unblockUser(userId: string): Promise<void> {
-    this.blockedUsers.delete(userId);
-    await this.redisService.unblockUser(userId);
-  }
-
-  /**
-   * Check if user is blocked
-   */
-  isUserBlocked(userId: string): boolean {
-    const blockExpiry = this.blockedUsers.get(userId);
-    if (!blockExpiry) return false;
-    
+    const blockExpiry = new Date(blockedUntil);
     if (blockExpiry > new Date()) {
       return true;
-    } else {
-      // Block has expired, remove it
-      this.blockedUsers.delete(userId);
-      return false;
     }
+    
+    // Block expired, remove it
+    await this.cacheRepository.delete(`blocked:${userId}`);
+    return false;
   }
 
   /**
-   * Record a violation
+   * Check for flooding using cache
    */
-  private recordViolation(userId: string | null, severity: 'low' | 'medium' | 'high') {
-    if (!userId) return;
+  private async checkFlooding(
+    userId: string,
+    streamId: string,
+    text: string,
+  ): Promise<boolean> {
+    const key = `${ModerationService.RECENT_MESSAGES_PREFIX}${userId}:${streamId}`;
+    const recentMessages = await this.cacheRepository.getListRange(key, 0, 9);
+    
+    // Check for similar messages
+    const hasSimilar = recentMessages.some(msg => 
+      this.moderationDomainService.areMessagesSimilar(msg, text)
+    );
+    
+    return hasSimilar;
+  }
 
-    const existing = this.userViolations.get(userId);
-    if (existing) {
-      existing.count++;
-      existing.lastViolation = new Date();
-      existing.severity = severity;
-      
-      // Auto-block after multiple violations
-      if (existing.count >= 5) {
-        const duration = existing.count * 600000; // 10 minutes per violation
-        this.blockUser(userId, duration);
-      }
-    } else {
-      this.userViolations.set(userId, {
-        userId,
-        count: 1,
-        lastViolation: new Date(),
-        severity,
-      });
+  /**
+   * Store recent message in cache
+   */
+  private async storeRecentMessage(
+    userId: string,
+    streamId: string,
+    text: string,
+  ): Promise<void> {
+    const key = `${ModerationService.RECENT_MESSAGES_PREFIX}${userId}:${streamId}`;
+    await this.cacheRepository.pushToList(key, text);
+    await this.cacheRepository.trimList(key, 0, 9); // Keep last 10
+    await this.cacheRepository.set(key, '1', 300); // Expire in 5 minutes
+  }
+
+  /**
+   * Get violation count from cache
+   */
+  private async getViolationCount(userId: string): Promise<number> {
+    const key = `${ModerationService.VIOLATIONS_PREFIX}${userId}`;
+    const count = await this.cacheRepository.get(key);
+    return count ? parseInt(count, 10) : 0;
+  }
+
+  /**
+   * Record violation in cache
+   */
+  private async recordViolation(
+    userId: string,
+    type: string,
+    streamId: string,
+  ): Promise<void> {
+    const key = `${ModerationService.VIOLATIONS_PREFIX}${userId}`;
+    const newCount = await this.cacheRepository.increment(key);
+    
+    // Set expiry for violations counter (24 hours)
+    await this.cacheRepository.set(key, newCount.toString(), 86400);
+    
+    // Check if should auto-block
+    if (this.moderationDomainService.shouldAutoBlock(newCount)) {
+      const blockDuration = this.moderationDomainService.calculateBlockDuration(newCount);
+      await this.blockUser(userId, blockDuration);
     }
+    
+    // Log violation details
+    const violationLog = JSON.stringify({
+      userId,
+      type,
+      streamId,
+      timestamp: new Date().toISOString(),
+      count: newCount,
+    });
+    await this.cacheRepository.pushToList(`violations:log:${userId}`, violationLog);
+  }
+
+  /**
+   * Block user (in cache, not memory)
+   */
+  async blockUser(userId: string, duration: number): Promise<void> {
+    const until = new Date(Date.now() + duration);
+    await this.cacheRepository.set(
+      `blocked:${userId}`,
+      until.toISOString(),
+      Math.floor(duration / 1000), // TTL in seconds
+    );
+  }
+
+  /**
+   * Unblock user
+   */
+  async unblockUser(userId: string): Promise<void> {
+    await this.cacheRepository.delete(`blocked:${userId}`);
   }
 
   /**
@@ -332,44 +216,51 @@ export class ModerationService {
     reporterId: string,
     reason: string,
   ): Promise<void> {
-    await this.redisService.addReport({
+    const report = JSON.stringify({
       commentId,
       reporterId,
       reason,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     });
+    await this.cacheRepository.pushToList(ModerationService.REPORTS_KEY, report);
   }
 
   /**
    * Get moderation statistics
    */
   async getModerationStats(): Promise<any> {
+    const reports = await this.cacheRepository.getListRange(
+      ModerationService.REPORTS_KEY,
+      0,
+      -1,
+    );
+    
     return {
-      blockedUsers: this.blockedUsers.size,
-      activeViolations: this.userViolations.size,
-      bannedWords: this.bannedWords.size,
-      reports: await this.redisService.getReportCount(),
+      bannedWordsCount: this.moderationDomainService.getBannedWords().length,
+      reportsCount: reports.length,
+      // Note: blocked users count would require scanning keys
+      // In production, use a dedicated counter
     };
+  }
+
+  /**
+   * Get list of banned words
+   */
+  getBannedWords(): string[] {
+    return this.moderationDomainService.getBannedWords();
   }
 
   /**
    * Add a banned word
    */
   addBannedWord(word: string): void {
-    this.bannedWords.add(word.toLowerCase());
+    this.moderationDomainService.addBannedWord(word);
   }
 
   /**
    * Remove a banned word
    */
   removeBannedWord(word: string): void {
-    this.bannedWords.delete(word.toLowerCase());
-  }
-
-  /**
-   * Get all banned words
-   */
-  getBannedWords(): string[] {
-    return Array.from(this.bannedWords);
+    this.moderationDomainService.removeBannedWord(word);
   }
 }

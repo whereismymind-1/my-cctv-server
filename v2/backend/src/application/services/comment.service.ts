@@ -20,9 +20,9 @@ export class CommentService {
   private commentValidator: CommentValidator;
 
   constructor(
-    @Inject('ICommentRepository')
+    @Inject('COMMENT_REPOSITORY')
     private readonly commentRepository: ICommentRepository,
-    @Inject('IStreamRepository')
+    @Inject('STREAM_REPOSITORY')
     private readonly streamRepository: IStreamRepository,
     private readonly redisService: RedisService,
     private readonly moderationService: ModerationService,
@@ -131,8 +131,7 @@ export class CommentService {
     // Get from database (historical comments)
     const comments = await this.commentRepository.findByStream(
       streamId,
-      limit,
-      offset,
+      { limit, offset },
     );
     const total = await this.commentRepository.countByStream(streamId);
 

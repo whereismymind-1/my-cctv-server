@@ -4,7 +4,7 @@ import { Send, Users, Heart, MessageCircle } from 'lucide-react';
 import VideoPlayer from '../components/VideoPlayer';
 import { useStreamStore } from '../stores/streamStore';
 import { useAuthStore } from '../stores/authStore';
-import { PerformanceMonitor } from '../hooks/usePerformanceMonitor';
+import { PerformanceMonitor } from '../shared/hooks/usePerformanceMonitor';
 
 const StreamViewer: React.FC = () => {
   const { id } = useParams<{ id: string }>();

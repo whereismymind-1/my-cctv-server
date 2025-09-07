@@ -29,11 +29,15 @@ let CommentRepository = class CommentRepository {
         });
         return entity ? this.toDomain(entity) : null;
     }
-    async findByStream(streamId, limit = 100, offset = 0) {
+    async findByStream(streamId, pagination) {
+        const limit = pagination?.limit || 100;
+        const offset = pagination?.offset || 0;
+        const orderBy = pagination?.orderBy || 'createdAt';
+        const order = pagination?.order || 'DESC';
         const entities = await this.repository.find({
             where: { streamId },
             relations: ['user'],
-            order: { createdAt: 'DESC' },
+            order: { [orderBy]: order },
             take: limit,
             skip: offset,
         });
@@ -65,6 +69,142 @@ let CommentRepository = class CommentRepository {
     }
     async deleteByStream(streamId) {
         await this.repository.delete({ streamId });
+    }
+    async countByUser(userId) {
+        return await this.repository.count({ where: { userId } });
+    }
+    async findAll(filter, pagination) {
+        const where = {};
+        if (filter.streamId)
+            where.streamId = filter.streamId;
+        if (filter.userId)
+            where.userId = filter.userId;
+        if (filter.hasCommand !== undefined) {
+            where.command = filter.hasCommand ? { $ne: null } : null;
+        }
+        if (filter.startTime || filter.endTime) {
+            where.createdAt = {};
+            if (filter.startTime)
+                where.createdAt.$gte = filter.startTime;
+            if (filter.endTime)
+                where.createdAt.$lte = filter.endTime;
+        }
+        const options = { where };
+        if (pagination) {
+            options.take = pagination.limit;
+            options.skip = pagination.offset;
+            options.order = {
+                [pagination.orderBy || 'createdAt']: pagination.order || 'ASC'
+            };
+        }
+        const entities = await this.repository.find(options);
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async saveMany(comments) {
+        const entities = comments.map(comment => this.toEntity(comment));
+        const saved = await this.repository.save(entities);
+        return saved.map(entity => this.toDomain(entity));
+    }
+    async findByStreamAndTimeRange(streamId, startVpos, endVpos) {
+        const entities = await this.repository.find({
+            where: {
+                streamId,
+                vpos: { $gte: startVpos, $lte: endVpos },
+            },
+            order: { vpos: 'ASC' },
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async findRecentByUser(userId, days) {
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        const entities = await this.repository.find({
+            where: {
+                userId,
+                createdAt: { $gte: date },
+            },
+            order: { createdAt: 'DESC' },
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async getCommentStats(streamId) {
+        const comments = await this.repository.find({
+            where: { streamId },
+        });
+        const uniqueUsers = new Set(comments.map(c => c.userId)).size;
+        const commandCounts = new Map();
+        comments.forEach(c => {
+            if (c.command) {
+                commandCounts.set(c.command, (commandCounts.get(c.command) || 0) + 1);
+            }
+        });
+        const topCommands = Array.from(commandCounts.entries())
+            .map(([command, count]) => ({ command, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+        return {
+            totalComments: comments.length,
+            uniqueUsers,
+            commentsPerMinute: 0,
+            peakCommentsPerMinute: 0,
+            topCommands,
+        };
+    }
+    async getPopularComments(streamId, limit) {
+        const entities = await this.repository.find({
+            where: { streamId },
+            order: { createdAt: 'DESC' },
+            take: limit,
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async getCommentTimeline(streamId, intervalSeconds) {
+        const comments = await this.repository.find({
+            where: { streamId },
+            order: { vpos: 'ASC' },
+        });
+        const timeline = [];
+        const interval = intervalSeconds * 1000;
+        if (comments.length === 0)
+            return timeline;
+        let currentInterval = 0;
+        let count = 0;
+        comments.forEach(comment => {
+            const commentInterval = Math.floor(comment.vpos / interval);
+            if (commentInterval > currentInterval) {
+                timeline.push({ timestamp: currentInterval * interval, count });
+                currentInterval = commentInterval;
+                count = 1;
+            }
+            else {
+                count++;
+            }
+        });
+        if (count > 0) {
+            timeline.push({ timestamp: currentInterval * interval, count });
+        }
+        return timeline;
+    }
+    async findReported(limit) {
+        const entities = await this.repository.find({
+            where: { isReported: true },
+            order: { createdAt: 'DESC' },
+            take: limit,
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async findByUserInStream(userId, streamId) {
+        const entities = await this.repository.find({
+            where: { userId, streamId },
+            order: { createdAt: 'DESC' },
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async markAsDeleted(id, reason) {
+        await this.repository.update(id, {
+            deletedAt: new Date(),
+            deletedReason: reason,
+        });
     }
     toDomain(entity) {
         const style = comment_entity_1.Comment.parseCommand(entity.command);

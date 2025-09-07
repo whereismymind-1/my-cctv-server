@@ -55,6 +55,144 @@ let UserRepository = class UserRepository {
         const count = await this.repository.count({ where: { username } });
         return count > 0;
     }
+    async findAll(filter) {
+        const where = {};
+        let take = undefined;
+        let skip = undefined;
+        if (filter) {
+            if (filter.level !== undefined) {
+                where.level = filter.level;
+            }
+            if (filter.minLevel !== undefined) {
+                where.level = { $gte: filter.minLevel };
+            }
+            if (filter.search) {
+                where.username = { $like: `%${filter.search}%` };
+            }
+            if (filter.isActive !== undefined) {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                if (filter.isActive) {
+                    where.lastLoginAt = { $gte: thirtyDaysAgo };
+                }
+            }
+        }
+        const entities = await this.repository.find({
+            where,
+            take,
+            skip,
+            order: { createdAt: 'DESC' },
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async findByRefreshToken(refreshToken) {
+        const entity = await this.repository.findOne({
+            where: { refreshToken }
+        });
+        return entity ? this.toDomain(entity) : null;
+    }
+    async updateRefreshToken(userId, refreshToken) {
+        await this.repository.update(userId, { refreshToken });
+    }
+    async updateLastLogin(userId) {
+        await this.repository.update(userId, {
+            lastLoginAt: new Date()
+        });
+    }
+    async updateLevel(userId, level) {
+        await this.repository.update(userId, { level });
+    }
+    async incrementExp(userId, amount) {
+        await this.repository.increment({ id: userId }, 'exp', amount);
+    }
+    async updateAvatar(userId, avatarUrl) {
+        await this.repository.update(userId, { avatarUrl });
+    }
+    async updatePassword(userId, passwordHash) {
+        await this.repository.update(userId, { passwordHash });
+    }
+    async countUsers() {
+        return await this.repository.count();
+    }
+    async searchUsers(searchTerm, limit) {
+        const query = this.repository.createQueryBuilder('user')
+            .where('user.username ILIKE :search OR user.email ILIKE :search', {
+            search: `%${searchTerm}%`
+        })
+            .orderBy('user.username', 'ASC');
+        if (limit) {
+            query.limit(limit);
+        }
+        const entities = await query.getMany();
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async findActiveUsers(days, limit) {
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        const query = this.repository.createQueryBuilder('user')
+            .where('user.lastLoginAt >= :date', { date })
+            .orderBy('user.lastLoginAt', 'DESC');
+        if (limit) {
+            query.limit(limit);
+        }
+        const entities = await query.getMany();
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async getUserStats(userId) {
+        const user = await this.repository.findOne({ where: { id: userId } });
+        if (!user)
+            return null;
+        return {
+            level: user.level,
+            exp: user.exp || 0,
+            joinedAt: user.createdAt,
+            lastLoginAt: user.lastLoginAt || user.updatedAt,
+        };
+    }
+    async updateExperience(id, exp) {
+        await this.repository.update(id, { exp });
+    }
+    async getTopUsers(limit) {
+        const entities = await this.repository.find({
+            order: { level: 'DESC' },
+            take: limit,
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async updateWatchTime(id, seconds) {
+        await this.repository.query(`UPDATE user_entity SET watch_time = watch_time + $1 WHERE id = $2`, [seconds, id]);
+    }
+    async incrementStreamCount(id) {
+        await this.repository.query(`UPDATE user_entity SET stream_count = COALESCE(stream_count, 0) + 1 WHERE id = $1`, [id]);
+    }
+    async getStatsByTimeRange(startDate, endDate) {
+        const result = await this.repository.createQueryBuilder('user')
+            .where('user.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+            .getCount();
+        return {
+            newUsers: result,
+            startDate,
+            endDate,
+        };
+    }
+    async findOnlineUsers() {
+        const fiveMinutesAgo = new Date();
+        fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+        const entities = await this.repository.find({
+            where: {
+                updatedAt: { $gte: fiveMinutesAgo },
+            },
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async incrementCommentCount(id) {
+        await this.repository.query(`UPDATE user_entity SET comment_count = COALESCE(comment_count, 0) + 1 WHERE id = $1`, [id]);
+    }
+    async verifyEmail(id) {
+        await this.repository.update(id, {
+            emailVerified: true,
+        });
+    }
     toDomain(entity) {
         return new user_entity_1.User(entity.id, entity.username, entity.email, entity.passwordHash, entity.avatarUrl, entity.level, entity.createdAt, entity.updatedAt);
     }

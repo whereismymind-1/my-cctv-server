@@ -1,0 +1,55 @@
+import { CommentStyle } from '../value-objects/comment-style.vo';
+export declare class CommentEntity {
+    readonly id: string;
+    readonly streamId: string;
+    readonly userId: string | null;
+    readonly username: string;
+    readonly text: string;
+    readonly command: string | null;
+    readonly style: CommentStyle;
+    readonly lane: number;
+    readonly x: number;
+    readonly y: number;
+    readonly speed: number;
+    readonly duration: number;
+    readonly vpos: number;
+    readonly createdAt: Date;
+    private readonly userLevel;
+    private static readonly MAX_TEXT_LENGTH;
+    private static readonly MIN_TEXT_LENGTH;
+    private static readonly DEFAULT_DURATION;
+    private static readonly DEFAULT_SPEED;
+    private static readonly SCREEN_WIDTH;
+    private static readonly LANE_HEIGHT;
+    private static readonly TOTAL_LANES;
+    constructor(id: string, streamId: string, userId: string | null, username: string, text: string, command: string | null, style: CommentStyle, lane: number, x: number, y: number, speed: number, duration: number, vpos: number, createdAt: Date, userLevel?: number);
+    private validateInvariants;
+    private validateStylePermissions;
+    static create(streamId: string, userId: string | null, username: string, text: string, command: string | null, vpos: number, userLevel?: number): CommentEntity;
+    private static parseCommand;
+    private static calculateDuration;
+    private static calculateSpeed;
+    private static generateId;
+    isAnonymous(): boolean;
+    isCommand(): boolean;
+    calculatePosition(currentTime: number): {
+        x: number;
+        y: number;
+        visible: boolean;
+    };
+    collidesWith(other: CommentEntity, currentTime: number): boolean;
+    private estimateWidth;
+    getRenderPriority(): number;
+    passesFilter(filterLevel: 'none' | 'low' | 'medium' | 'high'): boolean;
+    private isSpam;
+    canBeModeratedBy(moderatorLevel: number): boolean;
+    toDisplayFormat(): {
+        id: string;
+        text: string;
+        style: CommentStyle;
+        lane: number;
+        priority: number;
+    };
+    withLane(lane: number): CommentEntity;
+    withStyle(style: CommentStyle): CommentEntity;
+}

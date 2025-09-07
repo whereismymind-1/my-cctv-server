@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import CanvasCommentOverlay from './CanvasCommentOverlay';
-import { Comment } from '../types';
+import { Comment } from '../shared/types';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 
 interface VideoPlayerProps {
@@ -114,6 +114,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     <div
       ref={containerRef}
       className="relative bg-black rounded-lg overflow-hidden group"
+      data-testid="video-container"
     >
       {/* Video Element */}
       <div className="relative aspect-video">
@@ -124,6 +125,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             src={streamUrl}
             poster={thumbnail}
             onClick={togglePlay}
+            data-testid="video-element"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gray-900">
@@ -154,6 +156,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <button
             onClick={togglePlay}
             className="text-white hover:text-gray-300 transition"
+            aria-label={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? <Pause size={24} /> : <Play size={24} />}
           </button>
@@ -167,20 +170,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
           {/* Progress Bar */}
           {!isLive && (
-            <input
-              type="range"
-              min="0"
-              max={duration}
-              value={currentTime}
-              onChange={handleSeek}
-              className="flex-1"
-            />
+            <div className="flex-1" role="progressbar" aria-valuemin={0} aria-valuemax={duration} aria-valuenow={currentTime}>
+              <div className="relative h-1 bg-gray-600 rounded-full cursor-pointer" onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const clickedValue = (x / rect.width) * duration;
+                const video = videoRef.current;
+                if (video) {
+                  video.currentTime = clickedValue;
+                  setCurrentTime(clickedValue);
+                }
+              }}>
+                <div className="absolute h-full bg-blue-600 rounded-full" style={{ width: `${(currentTime / duration) * 100}%` }} />
+              </div>
+            </div>
           )}
 
           {/* Volume Controls */}
           <button
             onClick={toggleMute}
             className="text-white hover:text-gray-300 transition"
+            aria-label="Volume"
           >
             {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
           </button>
@@ -192,12 +202,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             value={volume}
             onChange={handleVolumeChange}
             className="w-20"
+            aria-label="Volume"
           />
 
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
             className="text-white hover:text-gray-300 transition"
+            aria-label="Fullscreen"
           >
             {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
           </button>
@@ -207,4 +219,4 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   );
 };
 
-export default VideoPlayer;
+export default React.memo(VideoPlayer);

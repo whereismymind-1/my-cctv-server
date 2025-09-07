@@ -1,53 +1,50 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StreamStatus = void 0;
-class StreamStatus {
-    constructor(value) {
-        this.value = value;
-        this.validate(value);
+exports.StreamStatusHelper = exports.StreamStatus = void 0;
+var StreamStatus;
+(function (StreamStatus) {
+    StreamStatus["WAITING"] = "waiting";
+    StreamStatus["LIVE"] = "live";
+    StreamStatus["ENDED"] = "ended";
+})(StreamStatus || (exports.StreamStatus = StreamStatus = {}));
+class StreamStatusHelper {
+    static canTransition(from, to) {
+        const transitions = {
+            [StreamStatus.WAITING]: [StreamStatus.LIVE, StreamStatus.ENDED],
+            [StreamStatus.LIVE]: [StreamStatus.ENDED],
+            [StreamStatus.ENDED]: [],
+        };
+        return transitions[from].includes(to);
     }
-    validate(value) {
-        if (!StreamStatus.VALID_STATUSES.includes(value)) {
-            throw new Error(`Invalid stream status: ${value}`);
+    static getDisplayName(status) {
+        const names = {
+            [StreamStatus.WAITING]: 'Waiting to Start',
+            [StreamStatus.LIVE]: 'Live',
+            [StreamStatus.ENDED]: 'Ended',
+        };
+        return names[status];
+    }
+    static getColor(status) {
+        const colors = {
+            [StreamStatus.WAITING]: '#FFA500',
+            [StreamStatus.LIVE]: '#FF0000',
+            [StreamStatus.ENDED]: '#808080',
+        };
+        return colors[status];
+    }
+    static fromString(value) {
+        const normalized = value.toLowerCase();
+        switch (normalized) {
+            case 'waiting':
+                return StreamStatus.WAITING;
+            case 'live':
+                return StreamStatus.LIVE;
+            case 'ended':
+                return StreamStatus.ENDED;
+            default:
+                throw new Error(`Invalid stream status: ${value}`);
         }
     }
-    static waiting() {
-        return new StreamStatus('waiting');
-    }
-    static live() {
-        return new StreamStatus('live');
-    }
-    static ended() {
-        return new StreamStatus('ended');
-    }
-    isWaiting() {
-        return this.value === 'waiting';
-    }
-    isLive() {
-        return this.value === 'live';
-    }
-    isEnded() {
-        return this.value === 'ended';
-    }
-    canStart() {
-        return this.isWaiting();
-    }
-    canEnd() {
-        return this.isLive();
-    }
-    canDelete() {
-        return !this.isLive();
-    }
-    getValue() {
-        return this.value;
-    }
-    equals(other) {
-        return this.value === other.value;
-    }
-    toString() {
-        return this.value;
-    }
 }
-exports.StreamStatus = StreamStatus;
-StreamStatus.VALID_STATUSES = ['waiting', 'live', 'ended'];
+exports.StreamStatusHelper = StreamStatusHelper;
 //# sourceMappingURL=stream-status.vo.js.map

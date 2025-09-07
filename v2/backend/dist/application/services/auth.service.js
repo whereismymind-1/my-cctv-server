@@ -102,7 +102,7 @@ let AuthService = class AuthService {
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, common_1.Inject)('IUserRepository')),
+    __param(0, (0, common_1.Inject)('USER_REPOSITORY')),
     __metadata("design:paramtypes", [Object, jwt_1.JwtService,
         config_1.ConfigService])
 ], AuthService);

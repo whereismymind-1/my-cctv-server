@@ -18,7 +18,7 @@ import {
 @Injectable()
 export class StreamService {
   constructor(
-    @Inject('IStreamRepository')
+    @Inject('STREAM_REPOSITORY')
     private readonly streamRepository: IStreamRepository,
     private readonly redisService: RedisService,
   ) {}

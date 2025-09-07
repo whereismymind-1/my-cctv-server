@@ -169,7 +169,7 @@ let StreamService = class StreamService {
 exports.StreamService = StreamService;
 exports.StreamService = StreamService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, common_1.Inject)('IStreamRepository')),
+    __param(0, (0, common_1.Inject)('STREAM_REPOSITORY')),
     __metadata("design:paramtypes", [Object, redis_service_1.RedisService])
 ], StreamService);
 //# sourceMappingURL=stream.service.js.map

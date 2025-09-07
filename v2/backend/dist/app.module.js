@@ -12,14 +12,11 @@ const config_1 = require("@nestjs/config");
 const typeorm_1 = require("@nestjs/typeorm");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
-const auth_module_1 = require("./auth/auth.module");
-const stream_module_1 = require("./stream/stream.module");
-const comment_module_1 = require("./comment/comment.module");
-const redis_module_1 = require("./infrastructure/redis/redis.module");
+const domain_module_1 = require("./domain/domain.module");
+const application_module_1 = require("./application/application.module");
+const infrastructure_module_1 = require("./infrastructure/infrastructure.module");
+const presentation_module_1 = require("./presentation/presentation.module");
 const database_config_1 = require("./infrastructure/config/database.config");
-const health_module_1 = require("./health/health.module");
-const moderation_module_1 = require("./moderation/moderation.module");
-const analytics_module_1 = require("./analytics/analytics.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -35,13 +32,10 @@ exports.AppModule = AppModule = __decorate([
                 inject: [config_1.ConfigService],
                 useFactory: database_config_1.getDatabaseConfig,
             }),
-            redis_module_1.RedisModule,
-            auth_module_1.AuthModule,
-            stream_module_1.StreamModule,
-            comment_module_1.CommentModule,
-            health_module_1.HealthModule,
-            moderation_module_1.ModerationModule,
-            analytics_module_1.AnalyticsModule,
+            domain_module_1.DomainModule,
+            infrastructure_module_1.InfrastructureModule,
+            application_module_1.ApplicationModule,
+            presentation_module_1.PresentationModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

@@ -69,7 +69,7 @@ let CommentService = class CommentService {
         if (!stream) {
             throw new common_1.NotFoundException('Stream not found');
         }
-        const comments = await this.commentRepository.findByStream(streamId, limit, offset);
+        const comments = await this.commentRepository.findByStream(streamId, { limit, offset });
         const total = await this.commentRepository.countByStream(streamId);
         return {
             comments: comments.map(c => this.toResponseDto(c)),
@@ -122,8 +122,8 @@ let CommentService = class CommentService {
 exports.CommentService = CommentService;
 exports.CommentService = CommentService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, common_1.Inject)('ICommentRepository')),
-    __param(1, (0, common_1.Inject)('IStreamRepository')),
+    __param(0, (0, common_1.Inject)('COMMENT_REPOSITORY')),
+    __param(1, (0, common_1.Inject)('STREAM_REPOSITORY')),
     __metadata("design:paramtypes", [Object, Object, redis_service_1.RedisService,
         moderation_service_1.ModerationService])
 ], CommentService);

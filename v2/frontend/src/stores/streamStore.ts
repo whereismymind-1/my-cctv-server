@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { Stream, Comment } from '../types';
-import { apiService } from '../services/api';
-import { wsService } from '../services/websocket';
+import { Stream, Comment } from '../shared/types';
+import { apiService } from '../shared/api/api';
+import { wsService } from '../shared/api/websocket';
 
 interface StreamState {
   // Stream data

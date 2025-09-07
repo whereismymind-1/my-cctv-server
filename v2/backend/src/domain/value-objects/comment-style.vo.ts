@@ -17,8 +17,12 @@ export class CommentStyle {
     }
   }
 
+  static createDefault(): CommentStyle {
+    return new CommentStyle('scroll', '#FFFFFF', 'medium');
+  }
+
   static fromCommand(command: string | null): CommentStyle {
-    const defaultStyle = new CommentStyle('scroll', '#FFFFFF', 'medium');
+    const defaultStyle = CommentStyle.createDefault();
     
     if (!command) return defaultStyle;
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Comment } from '../types';
+import { Comment } from '../shared/types';
 
 interface CommentOverlayProps {
   comments: Comment[];
@@ -91,6 +91,7 @@ const CommentOverlay: React.FC<CommentOverlayProps> = ({
       ref={containerRef}
       className="absolute inset-0 overflow-hidden pointer-events-none"
       style={{ width, height }}
+      data-testid="comment-overlay"
     >
       <AnimatePresence>
         {animatedComments.map((comment) => (
@@ -115,4 +116,4 @@ const CommentOverlay: React.FC<CommentOverlayProps> = ({
   );
 };
 
-export default CommentOverlay;
+export default React.memo(CommentOverlay);

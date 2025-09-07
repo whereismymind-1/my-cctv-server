@@ -20,7 +20,7 @@ describe('AuthService', () => {
     'testuser',
     'test@example.com',
     'hashedpassword',
-    null,
+    null, // avatarUrl is null
     1,
     new Date(),
     new Date(),
@@ -100,7 +100,7 @@ describe('AuthService', () => {
         username: mockUser.username,
         email: mockUser.email,
         level: mockUser.level,
-        avatarUrl: mockUser.avatarUrl,
+        avatarUrl: undefined,
       });
       expect(userRepository.save).toHaveBeenCalled();
       expect(bcrypt.hash).toHaveBeenCalledWith(registerDto.password, 10);
@@ -144,7 +144,7 @@ describe('AuthService', () => {
         username: mockUser.username,
         email: mockUser.email,
         level: mockUser.level,
-        avatarUrl: mockUser.avatarUrl,
+        avatarUrl: undefined,
       });
       expect(bcrypt.compare).toHaveBeenCalledWith(
         loginDto.password,

@@ -1,61 +1,71 @@
-export class StreamStatus {
-  private static readonly VALID_STATUSES = ['waiting', 'live', 'ended'] as const;
-  
-  constructor(private readonly value: typeof StreamStatus.VALID_STATUSES[number]) {
-    this.validate(value);
+/**
+ * Stream Status Value Object
+ * Represents the current state of a stream
+ */
+export enum StreamStatus {
+  WAITING = 'waiting',
+  LIVE = 'live',
+  ENDED = 'ended',
+}
+
+/**
+ * Helper class for Stream Status operations
+ */
+export class StreamStatusHelper {
+  /**
+   * Check if transition is valid
+   */
+  static canTransition(from: StreamStatus, to: StreamStatus): boolean {
+    const transitions: Record<StreamStatus, StreamStatus[]> = {
+      [StreamStatus.WAITING]: [StreamStatus.LIVE, StreamStatus.ENDED],
+      [StreamStatus.LIVE]: [StreamStatus.ENDED],
+      [StreamStatus.ENDED]: [], // No transitions from ended
+    };
+    
+    return transitions[from].includes(to);
   }
 
-  private validate(value: string): void {
-    if (!StreamStatus.VALID_STATUSES.includes(value as any)) {
-      throw new Error(`Invalid stream status: ${value}`);
+  /**
+   * Get display name
+   */
+  static getDisplayName(status: StreamStatus): string {
+    const names: Record<StreamStatus, string> = {
+      [StreamStatus.WAITING]: 'Waiting to Start',
+      [StreamStatus.LIVE]: 'Live',
+      [StreamStatus.ENDED]: 'Ended',
+    };
+    
+    return names[status];
+  }
+
+  /**
+   * Get status color (for UI)
+   */
+  static getColor(status: StreamStatus): string {
+    const colors: Record<StreamStatus, string> = {
+      [StreamStatus.WAITING]: '#FFA500', // Orange
+      [StreamStatus.LIVE]: '#FF0000', // Red
+      [StreamStatus.ENDED]: '#808080', // Gray
+    };
+    
+    return colors[status];
+  }
+
+  /**
+   * Parse status from string
+   */
+  static fromString(value: string): StreamStatus {
+    const normalized = value.toLowerCase();
+    
+    switch (normalized) {
+      case 'waiting':
+        return StreamStatus.WAITING;
+      case 'live':
+        return StreamStatus.LIVE;
+      case 'ended':
+        return StreamStatus.ENDED;
+      default:
+        throw new Error(`Invalid stream status: ${value}`);
     }
-  }
-
-  static waiting(): StreamStatus {
-    return new StreamStatus('waiting');
-  }
-
-  static live(): StreamStatus {
-    return new StreamStatus('live');
-  }
-
-  static ended(): StreamStatus {
-    return new StreamStatus('ended');
-  }
-
-  isWaiting(): boolean {
-    return this.value === 'waiting';
-  }
-
-  isLive(): boolean {
-    return this.value === 'live';
-  }
-
-  isEnded(): boolean {
-    return this.value === 'ended';
-  }
-
-  canStart(): boolean {
-    return this.isWaiting();
-  }
-
-  canEnd(): boolean {
-    return this.isLive();
-  }
-
-  canDelete(): boolean {
-    return !this.isLive();
-  }
-
-  getValue(): string {
-    return this.value;
-  }
-
-  equals(other: StreamStatus): boolean {
-    return this.value === other.value;
-  }
-
-  toString(): string {
-    return this.value;
   }
 }

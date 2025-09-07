@@ -1,8 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import StreamViewer from './pages/StreamViewer';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useAuthStore } from './stores/authStore';
+
+// Lazy load pages for code splitting
+const Landing = lazy(() => import('./pages/Landing'));
+const StreamList = lazy(() => import('./pages/StreamList'));
+const StreamViewer = lazy(() => import('./pages/StreamViewer'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,25 +18,53 @@ const queryClient = new QueryClient({
   },
 });
 
+// Protected Route Component
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuthStore();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
+}
+
 function App() {
-  const { loadUser } = useAuthStore();
+  const { loadUser, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     loadUser();
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Routes>
-            {/* Temporary route for testing - use the actual stream ID */}
-            <Route path="/" element={<Navigate to="/stream/25962097-7c2f-46a6-9ea1-5fde40dcae93" replace />} />
-            <Route path="/stream/:id" element={<StreamViewer />} />
-          </Routes>
-        </div>
-      </Router>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <div className="min-h-screen bg-gray-50">
+            <Suspense fallback={
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+            }>
+              <Routes>
+                {/* Landing page for non-authenticated users */}
+                <Route path="/" element={
+                  isAuthenticated ? <Navigate to="/streams" replace /> : <Landing />
+                } />
+                
+                {/* Protected routes */}
+                <Route path="/streams" element={
+                  <ProtectedRoute>
+                    <StreamList />
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/stream/:id" element={
+                  <ProtectedRoute>
+                    <StreamViewer />
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </Suspense>
+          </div>
+        </Router>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

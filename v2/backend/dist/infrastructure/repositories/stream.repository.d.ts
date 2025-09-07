@@ -13,6 +13,19 @@ export declare class StreamRepository implements IStreamRepository {
     delete(id: string): Promise<void>;
     updateViewerCount(id: string, count: number): Promise<void>;
     findActiveStreams(): Promise<Stream[]>;
+    findByOwner(ownerId: string, includeEnded?: boolean): Promise<Stream[]>;
+    findRecentStreams(days: number, limit?: number): Promise<Stream[]>;
+    countActiveStreamsByOwner(ownerId: string): Promise<number>;
+    updateStreamStatus(id: string, status: 'waiting' | 'live' | 'ended'): Promise<void>;
+    getStreamStats(id: string): Promise<any>;
+    incrementViewerCount(id: string): Promise<void>;
+    decrementViewerCount(id: string): Promise<void>;
+    searchStreams(searchTerm: string, limit?: number): Promise<Stream[]>;
+    getPopularStreams(limit: number): Promise<Stream[]>;
+    recordStreamStart(id: string): Promise<void>;
+    recordStreamEnd(id: string, stats: any): Promise<void>;
+    getOwnerStreamHistory(ownerId: string, days: number): Promise<Stream[]>;
+    getMostViewedStreams(limit: number, timeRange?: number): Promise<Stream[]>;
     private toDomain;
     private toEntity;
 }

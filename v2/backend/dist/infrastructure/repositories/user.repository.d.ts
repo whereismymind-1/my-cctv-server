@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { User } from '../../domain/entities/user.entity';
-import { IUserRepository } from '../../domain/repositories/user.repository.interface';
+import { IUserRepository, UserFilter } from '../../domain/repositories/user.repository.interface';
 import { UserEntity } from '../database/entities/user.schema';
 export declare class UserRepository implements IUserRepository {
     private readonly repository;
@@ -13,6 +13,26 @@ export declare class UserRepository implements IUserRepository {
     delete(id: string): Promise<void>;
     exists(email: string): Promise<boolean>;
     existsByUsername(username: string): Promise<boolean>;
+    findAll(filter?: UserFilter): Promise<User[]>;
+    findByRefreshToken(refreshToken: string): Promise<User | null>;
+    updateRefreshToken(userId: string, refreshToken: string | null): Promise<void>;
+    updateLastLogin(userId: string): Promise<void>;
+    updateLevel(userId: string, level: number): Promise<void>;
+    incrementExp(userId: string, amount: number): Promise<void>;
+    updateAvatar(userId: string, avatarUrl: string): Promise<void>;
+    updatePassword(userId: string, passwordHash: string): Promise<void>;
+    countUsers(): Promise<number>;
+    searchUsers(searchTerm: string, limit?: number): Promise<User[]>;
+    findActiveUsers(days: number, limit?: number): Promise<User[]>;
+    getUserStats(userId: string): Promise<any>;
+    updateExperience(id: string, exp: number): Promise<void>;
+    getTopUsers(limit: number): Promise<User[]>;
+    updateWatchTime(id: string, seconds: number): Promise<void>;
+    incrementStreamCount(id: string): Promise<void>;
+    getStatsByTimeRange(startDate: Date, endDate: Date): Promise<any>;
+    findOnlineUsers(): Promise<User[]>;
+    incrementCommentCount(id: string): Promise<void>;
+    verifyEmail(id: string): Promise<void>;
     private toDomain;
     private toEntity;
 }

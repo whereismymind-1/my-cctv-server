@@ -102,6 +102,121 @@ let StreamRepository = class StreamRepository {
         });
         return entities.map(entity => this.toDomain(entity));
     }
+    async findByOwner(ownerId, includeEnded) {
+        const where = { ownerId };
+        if (!includeEnded) {
+            where.status = 'live';
+        }
+        const entities = await this.repository.find({
+            where,
+            relations: ['owner'],
+            order: { createdAt: 'DESC' },
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async findRecentStreams(days, limit) {
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        const query = this.repository.createQueryBuilder('stream')
+            .leftJoinAndSelect('stream.owner', 'owner')
+            .where('stream.createdAt >= :date', { date })
+            .orderBy('stream.createdAt', 'DESC');
+        if (limit) {
+            query.limit(limit);
+        }
+        const entities = await query.getMany();
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async countActiveStreamsByOwner(ownerId) {
+        return await this.repository.count({
+            where: { ownerId, status: 'live' },
+        });
+    }
+    async updateStreamStatus(id, status) {
+        await this.repository.update(id, { status });
+    }
+    async getStreamStats(id) {
+        const stream = await this.repository.findOne({ where: { id } });
+        if (!stream)
+            return null;
+        return {
+            totalViewers: stream.viewerCount,
+            peakViewers: stream.maxViewers,
+            duration: stream.endedAt && stream.startedAt ?
+                (stream.endedAt.getTime() - stream.startedAt.getTime()) / 1000 : 0,
+            status: stream.status,
+        };
+    }
+    async incrementViewerCount(id) {
+        await this.repository.increment({ id }, 'viewerCount', 1);
+        await this.repository.query(`UPDATE stream_entity SET max_viewers = GREATEST(max_viewers, viewer_count) WHERE id = $1`, [id]);
+    }
+    async decrementViewerCount(id) {
+        await this.repository.decrement({ id }, 'viewerCount', 1);
+    }
+    async searchStreams(searchTerm, limit) {
+        const query = this.repository.createQueryBuilder('stream')
+            .leftJoinAndSelect('stream.owner', 'owner')
+            .where('stream.title ILIKE :search OR stream.description ILIKE :search', {
+            search: `%${searchTerm}%`
+        })
+            .orderBy('stream.viewerCount', 'DESC');
+        if (limit) {
+            query.limit(limit);
+        }
+        const entities = await query.getMany();
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async getPopularStreams(limit) {
+        const entities = await this.repository.find({
+            where: { status: 'live' },
+            relations: ['owner'],
+            order: { viewerCount: 'DESC' },
+            take: limit,
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async recordStreamStart(id) {
+        await this.repository.update(id, {
+            status: 'live',
+            startedAt: new Date(),
+        });
+    }
+    async recordStreamEnd(id, stats) {
+        await this.repository.update(id, {
+            status: 'ended',
+            endedAt: new Date(),
+            maxViewers: stats.peakViewers || 0,
+        });
+    }
+    async getOwnerStreamHistory(ownerId, days) {
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        const entities = await this.repository.find({
+            where: {
+                ownerId,
+                createdAt: { $gte: date },
+            },
+            relations: ['owner'],
+            order: { createdAt: 'DESC' },
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
+    async getMostViewedStreams(limit, timeRange) {
+        let where = {};
+        if (timeRange) {
+            const date = new Date();
+            date.setDate(date.getDate() - timeRange);
+            where.createdAt = { $gte: date };
+        }
+        const entities = await this.repository.find({
+            where,
+            relations: ['owner'],
+            order: { maxViewers: 'DESC' },
+            take: limit,
+        });
+        return entities.map(entity => this.toDomain(entity));
+    }
     toDomain(entity) {
         const settings = {
             allowComments: entity.allowComments,

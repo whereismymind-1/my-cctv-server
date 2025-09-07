@@ -9,7 +9,7 @@ import { RegisterDto, LoginDto, AuthResponseDto, TokenPayload } from '../dto/aut
 @Injectable()
 export class AuthService {
   constructor(
-    @Inject('IUserRepository')
+    @Inject('USER_REPOSITORY')
     private readonly userRepository: IUserRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,

@@ -14,8 +14,11 @@ class CommentStyle {
             throw new Error(`Invalid color format: ${color}`);
         }
     }
+    static createDefault() {
+        return new CommentStyle('scroll', '#FFFFFF', 'medium');
+    }
     static fromCommand(command) {
-        const defaultStyle = new CommentStyle('scroll', '#FFFFFF', 'medium');
+        const defaultStyle = CommentStyle.createDefault();
         if (!command)
             return defaultStyle;
         const parts = command.toLowerCase().split(' ').filter(p => p.length > 0);
