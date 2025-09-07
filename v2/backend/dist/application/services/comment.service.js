@@ -51,7 +51,7 @@ let CommentService = class CommentService {
             throw new common_1.BadRequestException('Invalid command format');
         }
         const sanitizedText = this.commentValidator.sanitize(dto.text);
-        const comment = comment_entity_1.Comment.create(dto.streamId, userId, username, sanitizedText, dto.command, Date.now());
+        const comment = comment_entity_1.Comment.create(dto.streamId, userId, username, sanitizedText, dto.command ?? null, Date.now());
         const laneAssignment = this.laneManager.assignLane();
         const commentWithLane = comment.withLaneAssignment(laneAssignment.lane, laneAssignment.y);
         const saved = await this.commentRepository.save(commentWithLane);
@@ -92,7 +92,7 @@ let CommentService = class CommentService {
         return {
             id: comment.id,
             text: comment.text,
-            command: comment.command,
+            command: comment.command ?? undefined,
             user: {
                 id: comment.userId || 'anonymous',
                 username: comment.username,

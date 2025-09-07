@@ -45,7 +45,7 @@ export class AuthService {
         username: savedUser.username,
         email: savedUser.email,
         level: savedUser.level,
-        avatarUrl: savedUser.avatarUrl,
+        avatarUrl: savedUser.avatarUrl ?? undefined,
       },
       token,
     };
@@ -73,7 +73,7 @@ export class AuthService {
         username: user.username,
         email: user.email,
         level: user.level,
-        avatarUrl: user.avatarUrl,
+        avatarUrl: user.avatarUrl ?? undefined,
       },
       token,
     };

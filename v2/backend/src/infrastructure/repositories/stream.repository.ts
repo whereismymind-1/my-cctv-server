@@ -146,8 +146,8 @@ export class StreamRepository implements IStreamRepository {
     if (domain.id) entity.id = domain.id;
     entity.ownerId = domain.ownerId;
     entity.title = domain.title;
-    entity.description = domain.description;
-    entity.thumbnailUrl = domain.thumbnailUrl;
+    entity.description = domain.description || '';
+    entity.thumbnailUrl = domain.thumbnailUrl || '';
     entity.streamKey = domain.streamKey;
     entity.status = domain.status;
     entity.viewerCount = domain.viewerCount;
@@ -156,8 +156,8 @@ export class StreamRepository implements IStreamRepository {
     entity.commentCooldown = domain.settings.commentCooldown;
     entity.maxCommentLength = domain.settings.maxCommentLength;
     entity.allowAnonymous = domain.settings.allowAnonymous;
-    entity.startedAt = domain.startedAt;
-    entity.endedAt = domain.endedAt;
+    entity.startedAt = domain.startedAt || new Date(0);
+    entity.endedAt = domain.endedAt || new Date(0);
     entity.createdAt = domain.createdAt;
     entity.updatedAt = domain.updatedAt;
     return entity;

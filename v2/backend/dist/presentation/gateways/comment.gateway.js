@@ -37,12 +37,12 @@ let CommentGateway = class CommentGateway {
                     client.username = payload.username;
                 }
                 catch {
-                    client.userId = null;
+                    client.userId = undefined;
                     client.username = `Guest_${client.id.substring(0, 6)}`;
                 }
             }
             else {
-                client.userId = null;
+                client.userId = undefined;
                 client.username = `Guest_${client.id.substring(0, 6)}`;
             }
             console.log(`Client connected: ${client.id} (${client.username})`);
@@ -115,7 +115,7 @@ let CommentGateway = class CommentGateway {
                 streamId,
                 count: viewerCount,
             });
-            client.currentRoom = null;
+            client.currentRoom = undefined;
             client.emit('room_left', { streamId });
         }
         catch (error) {
@@ -124,7 +124,7 @@ let CommentGateway = class CommentGateway {
     }
     async handleSendComment(client, data) {
         try {
-            const comment = await this.commentService.sendComment(client.userId, client.username || 'Anonymous', data);
+            const comment = await this.commentService.sendComment(client.userId ?? null, client.username || 'Anonymous', data);
             this.server.to(data.streamId).emit('new_comment', comment);
             client.emit('comment_sent', {
                 success: true,

@@ -208,12 +208,12 @@ export class StreamService {
     return {
       id: stream.id,
       title: stream.title,
-      description: stream.description,
-      thumbnail: stream.thumbnailUrl,
+      description: stream.description ?? undefined,
+      thumbnail: stream.thumbnailUrl ?? undefined,
       owner: {
         id: stream.ownerId,
         username: 'TODO', // Will be populated when we have user info
-        avatar: null,
+        avatar: undefined,
       },
       viewerCount: stream.viewerCount,
       status: stream.status as any,
@@ -221,8 +221,8 @@ export class StreamService {
       streamKey: isOwner ? stream.streamKey : undefined,
       streamUrl: isOwner ? `rtmp://localhost/live/${stream.streamKey}` : undefined,
       createdAt: stream.createdAt,
-      startedAt: stream.startedAt,
-      endedAt: stream.endedAt,
+      startedAt: stream.startedAt ?? undefined,
+      endedAt: stream.endedAt ?? undefined,
     };
   }
 }

@@ -82,7 +82,7 @@ export class CommentService {
       userId,
       username,
       sanitizedText,
-      dto.command,
+      dto.command ?? null,
       Date.now(), // Current video position
     );
 
@@ -156,7 +156,7 @@ export class CommentService {
     return {
       id: comment.id,
       text: comment.text,
-      command: comment.command,
+      command: comment.command ?? undefined,
       user: {
         id: comment.userId || 'anonymous',
         username: comment.username,

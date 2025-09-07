@@ -52,12 +52,12 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
           client.username = payload.username;
         } catch {
           // Invalid token, continue as anonymous
-          client.userId = null;
+          client.userId = undefined;
           client.username = `Guest_${client.id.substring(0, 6)}`;
         }
       } else {
         // Anonymous user
-        client.userId = null;
+        client.userId = undefined;
         client.username = `Guest_${client.id.substring(0, 6)}`;
       }
 
@@ -168,7 +168,7 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
         count: viewerCount,
       });
 
-      client.currentRoom = null;
+      client.currentRoom = undefined;
       
       client.emit('room_left', { streamId });
 
@@ -185,7 +185,7 @@ export class CommentGateway implements OnGatewayConnection, OnGatewayDisconnect 
     try {
       // Process comment
       const comment = await this.commentService.sendComment(
-        client.userId,
+        client.userId ?? null,
         client.username || 'Anonymous',
         data,
       );

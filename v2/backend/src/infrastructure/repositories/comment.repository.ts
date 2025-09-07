@@ -96,9 +96,9 @@ export class CommentRepository implements ICommentRepository {
     const entity = new CommentEntity();
     if (domain.id) entity.id = domain.id;
     entity.streamId = domain.streamId;
-    entity.userId = domain.userId;
+    entity.userId = domain.userId || '';
     entity.text = domain.text;
-    entity.command = domain.command;
+    entity.command = domain.command || '';
     entity.vpos = domain.vpos;
     entity.createdAt = domain.createdAt;
     return entity;

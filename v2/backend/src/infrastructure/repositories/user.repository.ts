@@ -72,7 +72,7 @@ export class UserRepository implements IUserRepository {
     entity.username = domain.username;
     entity.email = domain.email;
     entity.passwordHash = domain.passwordHash;
-    entity.avatarUrl = domain.avatarUrl;
+    entity.avatarUrl = domain.avatarUrl || '';
     entity.level = domain.level;
     entity.createdAt = domain.createdAt;
     entity.updatedAt = domain.updatedAt;
