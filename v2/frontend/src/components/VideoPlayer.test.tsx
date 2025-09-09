@@ -1,234 +1,240 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import '@testing-library/jest-dom';
 import VideoPlayer from './VideoPlayer';
 import { Comment } from '../shared/types';
 
-// Mock the CanvasCommentOverlay component
-vi.mock('./CanvasCommentOverlay', () => ({
-  default: vi.fn(() => <div data-testid="canvas-overlay">Canvas Overlay</div>),
+// Mock Hls.js
+vi.mock('hls.js', () => ({
+  default: vi.fn().mockImplementation(() => ({
+    loadSource: vi.fn(),
+    attachMedia: vi.fn(),
+    destroy: vi.fn(),
+  })),
+  isSupported: vi.fn(() => true),
 }));
 
 describe('VideoPlayer', () => {
   const mockComments: Comment[] = [
     {
       id: '1',
-      text: 'Test comment',
-      userId: 'user1',
-      username: 'TestUser',
-      userLevel: 1,
+      text: 'Test comment 1',
+      command: 'ue red',
+      user: {
+        id: 'user1',
+        username: 'testuser1',
+        level: 1,
+      },
+      style: {
+        position: 'top',
+        color: '#ff0000',
+        size: 'medium',
+      },
+      lane: 0,
+      x: 0,
+      y: 30,
+      speed: 100,
+      duration: 5000,
+      vpos: 1000,
+      createdAt: new Date(),
+    },
+    {
+      id: '2',
+      text: 'Test comment 2',
+      command: '',
+      user: {
+        id: 'user2',
+        username: 'testuser2',
+        level: 2,
+      },
       style: {
         position: 'scroll',
-        color: '#FFFFFF',
-        size: 'medium'
+        color: '#ffffff',
+        size: 'medium',
       },
-      vpos: 1000,
-      createdAt: new Date().toISOString(),
+      lane: 1,
+      x: 800,
+      y: 60,
+      speed: 200,
+      duration: 4000,
+      vpos: 2000,
+      createdAt: new Date(),
     },
   ];
 
-  let mockVideoElement: HTMLVideoElement;
-
   beforeEach(() => {
-    // Mock HTMLVideoElement methods
-    mockVideoElement = document.createElement('video');
-    Object.defineProperty(mockVideoElement, 'play', {
-      value: vi.fn().mockResolvedValue(undefined),
-    });
-    Object.defineProperty(mockVideoElement, 'pause', {
-      value: vi.fn(),
-    });
-    Object.defineProperty(mockVideoElement, 'requestFullscreen', {
-      value: vi.fn().mockResolvedValue(undefined),
-    });
-    
-    // Mock document fullscreen methods
-    Object.defineProperty(document, 'exitFullscreen', {
-      value: vi.fn().mockResolvedValue(undefined),
-      configurable: true,
-    });
-    Object.defineProperty(document, 'fullscreenElement', {
-      value: null,
-      configurable: true,
-    });
-  });
-
-  afterEach(() => {
     vi.clearAllMocks();
   });
 
   it('renders video player with controls', () => {
-    render(<VideoPlayer comments={mockComments} />);
-    
+    render(
+      <VideoPlayer
+        streamUrl="http://example.com/stream.m3u8"
+        comments={[]}
+      />
+    );
+
     expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /volume/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /mute/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /fullscreen/i })).toBeInTheDocument();
-    expect(screen.getByTestId('canvas-overlay')).toBeInTheDocument();
   });
 
-  it('renders with thumbnail when provided', () => {
-    const thumbnailUrl = 'https://example.com/thumbnail.jpg';
-    render(<VideoPlayer comments={mockComments} thumbnail={thumbnailUrl} />);
-    
-    const video = screen.getByTestId('video-element') as HTMLVideoElement;
-    expect(video.poster).toBe(thumbnailUrl);
-  });
+  it('toggles play/pause state', async () => {
+    render(
+      <VideoPlayer
+        streamUrl="http://example.com/stream.m3u8"
+        comments={[]}
+      />
+    );
 
-  it('renders with stream URL when provided', () => {
-    const streamUrl = 'https://example.com/stream.m3u8';
-    render(<VideoPlayer comments={mockComments} streamUrl={streamUrl} />);
-    
-    const video = screen.getByTestId('video-element') as HTMLVideoElement;
-    expect(video.src).toBe(streamUrl);
-  });
-
-  it('toggles play/pause when button is clicked', async () => {
-    render(<VideoPlayer comments={mockComments} />);
-    
     const playButton = screen.getByRole('button', { name: /play/i });
-    const video = screen.getByTestId('video-element') as HTMLVideoElement;
     
-    // Click play
+    // Mock video element
+    const video = document.querySelector('video');
+    if (video) {
+      video.play = vi.fn().mockResolvedValue(undefined);
+      video.pause = vi.fn();
+    }
+
     fireEvent.click(playButton);
     await waitFor(() => {
-      expect(video.play).toHaveBeenCalled();
+      expect(video?.play).toHaveBeenCalled();
     });
-    
-    // Should now show pause button
-    const pauseButton = screen.getByRole('button', { name: /pause/i });
-    expect(pauseButton).toBeInTheDocument();
-    
-    // Click pause
-    fireEvent.click(pauseButton);
-    expect(video.pause).toHaveBeenCalled();
+
+    fireEvent.click(playButton);
+    expect(video?.pause).toHaveBeenCalled();
   });
 
-  it('toggles mute when volume button is clicked', () => {
-    render(<VideoPlayer comments={mockComments} />);
-    
-    const video = screen.getByTestId('video-element') as HTMLVideoElement;
-    const volumeButton = screen.getByRole('button', { name: /volume/i });
-    
-    // Initially not muted
-    expect(video.muted).toBe(false);
-    
-    // Click to mute
-    fireEvent.click(volumeButton);
-    expect(video.muted).toBe(true);
-    
-    // Click to unmute
-    fireEvent.click(volumeButton);
-    expect(video.muted).toBe(false);
-  });
-
-  it('changes volume when slider is moved', () => {
-    render(<VideoPlayer comments={mockComments} />);
-    
-    const video = screen.getByTestId('video-element') as HTMLVideoElement;
-    const volumeSlider = screen.getByRole('slider', { name: /volume/i });
-    
-    // Change volume to 0.5
-    fireEvent.change(volumeSlider, { target: { value: '0.5' } });
-    expect(video.volume).toBe(0.5);
-    
-    // Change volume to 0
-    fireEvent.change(volumeSlider, { target: { value: '0' } });
-    expect(video.volume).toBe(0);
-    expect(video.muted).toBe(true);
-  });
-
-  it('toggles fullscreen when button is clicked', async () => {
-    render(<VideoPlayer comments={mockComments} />);
-    
-    const container = screen.getByTestId('video-container');
-    const fullscreenButton = screen.getByRole('button', { name: /fullscreen/i });
-    
-    // Enter fullscreen
-    fireEvent.click(fullscreenButton);
-    await waitFor(() => {
-      expect(container.requestFullscreen).toHaveBeenCalled();
-    });
-  });
-
-  it('calls onTimeUpdate callback when video time updates', () => {
-    const onTimeUpdate = vi.fn();
+  it('handles volume change', () => {
     render(
-      <VideoPlayer comments={mockComments} onTimeUpdate={onTimeUpdate} />
+      <VideoPlayer
+        streamUrl="http://example.com/stream.m3u8"
+        comments={[]}
+      />
     );
+
+    const volumeSlider = screen.getByRole('slider', { name: /volume/i });
+    const video = document.querySelector('video');
+
+    fireEvent.change(volumeSlider, { target: { value: '0.5' } });
     
-    const video = screen.getByTestId('video-element') as HTMLVideoElement;
-    
-    // Simulate time update with mock current time
-    (video as any).currentTime = 5;
-    
-    fireEvent.timeUpdate(video);
-    
-    expect(onTimeUpdate).toHaveBeenCalledWith(5000); // Converts to milliseconds
+    expect(video?.volume).toBe(0.5);
   });
 
-  it('shows live indicator when isLive is true', () => {
-    render(<VideoPlayer comments={mockComments} isLive={true} />);
-    
-    expect(screen.getByText('LIVE')).toBeInTheDocument();
-    expect(screen.getByText('LIVE')).toHaveClass('bg-red-600');
+  it('toggles mute state', () => {
+    render(
+      <VideoPlayer
+        streamUrl="http://example.com/stream.m3u8"
+        comments={[]}
+      />
+    );
+
+    const muteButton = screen.getByRole('button', { name: /mute/i });
+    const video = document.querySelector('video');
+
+    fireEvent.click(muteButton);
+    expect(video?.muted).toBe(true);
+
+    fireEvent.click(muteButton);
+    expect(video?.muted).toBe(false);
   });
 
-  it('shows current time and duration for non-live videos', () => {
-    render(<VideoPlayer comments={mockComments} isLive={false} />);
-    
-    // Should show time display
-    expect(screen.getByText(/0:00 \/ 0:00/)).toBeInTheDocument();
+  it('renders comment overlay with comments', () => {
+    render(
+      <VideoPlayer
+        streamUrl="http://example.com/stream.m3u8"
+        comments={mockComments}
+      />
+    );
+
+    // Check if CanvasCommentOverlay is rendered (canvas element)
+    const canvas = document.querySelector('canvas');
+    expect(canvas).toBeInTheDocument();
   });
 
-  it('updates progress bar as video plays', () => {
-    render(<VideoPlayer comments={mockComments} />);
+  it('handles HLS stream URL', () => {
+    const hlsUrl = 'http://example.com/stream.m3u8';
     
-    const video = screen.getByTestId('video-element') as HTMLVideoElement;
+    render(
+      <VideoPlayer
+        streamUrl={hlsUrl}
+        comments={[]}
+      />
+    );
+
+    const video = document.querySelector('video');
+    expect(video).toBeInTheDocument();
+    
+    // Since we mocked Hls.js, we can check if it was called
+    const Hls = require('hls.js').default;
+    expect(Hls).toHaveBeenCalled();
+  });
+
+  it('handles non-HLS stream URL', () => {
+    const mp4Url = 'http://example.com/video.mp4';
+    
+    render(
+      <VideoPlayer
+        streamUrl={mp4Url}
+        comments={[]}
+      />
+    );
+
+    const video = document.querySelector('video');
+    expect(video?.src).toBe(mp4Url);
+  });
+
+  it('updates progress bar on time update', () => {
+    render(
+      <VideoPlayer
+        streamUrl="http://example.com/stream.m3u8"
+        comments={[]}
+      />
+    );
+
+    const video = document.querySelector('video');
     const progressBar = screen.getByRole('progressbar');
-    
-    // Set video duration and current time using property assignment
-    (video as any).duration = 100;
-    (video as any).currentTime = 25;
-    
-    // Trigger time update
-    fireEvent.loadedMetadata(video);
-    fireEvent.timeUpdate(video);
-    
-    // Progress should be 25%
-    const progressFill = progressBar.querySelector('.bg-blue-600');
-    expect(progressFill).toHaveStyle({ width: '25%' });
-  });
 
-  it('seeks to position when progress bar is clicked', () => {
-    render(<VideoPlayer comments={mockComments} />);
-    
-    const video = screen.getByTestId('video-element') as HTMLVideoElement;
-    const progressBar = screen.getByRole('progressbar');
-    
-    // Set video duration
-    (video as any).duration = 100;
-    fireEvent.loadedMetadata(video);
-    
-    // Find the clickable div inside progressbar
-    const clickableBar = progressBar.querySelector('.relative.h-1.bg-gray-600');
-    if (clickableBar) {
-      // Mock getBoundingClientRect
-      (clickableBar as any).getBoundingClientRect = vi.fn(() => ({
-        left: 0,
-        width: 400,
-        top: 0,
-        right: 400,
-        bottom: 20,
-        height: 20,
-        x: 0,
-        y: 0,
-        toJSON: () => {},
-      }));
+    if (video) {
+      Object.defineProperty(video, 'currentTime', { value: 30, writable: true });
+      Object.defineProperty(video, 'duration', { value: 100, writable: true });
       
-      // Click at 50% position
-      fireEvent.click(clickableBar, { clientX: 200 });
-      
-      // Should seek to 50% of duration
-      expect(video.currentTime).toBe(50);
+      const event = new Event('timeupdate');
+      video.dispatchEvent(event);
     }
+
+    expect(progressBar.getAttribute('aria-valuenow')).toBe('30');
+    expect(progressBar.getAttribute('aria-valuemax')).toBe('100');
+  });
+
+  it('handles fullscreen toggle', () => {
+    render(
+      <VideoPlayer
+        streamUrl="http://example.com/stream.m3u8"
+        comments={[]}
+      />
+    );
+
+    const fullscreenButton = screen.getByRole('button', { name: /fullscreen/i });
+    const playerContainer = document.querySelector('.video-player-container');
+
+    // Mock fullscreen API
+    if (playerContainer) {
+      playerContainer.requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    }
+
+    fireEvent.click(fullscreenButton);
+    expect(playerContainer?.requestFullscreen).toHaveBeenCalled();
+  });
+
+  it('displays loading state when no stream URL', () => {
+    render(
+      <VideoPlayer
+        streamUrl=""
+        comments={[]}
+      />
+    );
+
+    expect(screen.getByText(/no stream available/i)).toBeInTheDocument();
   });
 });

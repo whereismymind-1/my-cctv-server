@@ -46,6 +46,10 @@ function App() {
                 <Route path="/" element={
                   isAuthenticated ? <Navigate to="/streams" replace /> : <Landing />
                 } />
+                {/* Optional explicit login route mapped to Landing */}
+                <Route path="/login" element={
+                  isAuthenticated ? <Navigate to="/streams" replace /> : <Landing />
+                } />
                 
                 {/* Protected routes */}
                 <Route path="/streams" element={

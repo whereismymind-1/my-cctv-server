@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import VideoPlayer from './VideoPlayer';
-import { Comment } from '../shared/types';
+import { Comment } from '../shared/types/index';
 
 // Mock the CanvasCommentOverlay component
 vi.mock('./CanvasCommentOverlay', () => ({

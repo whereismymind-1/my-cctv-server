@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../shared/api/api';
-import { Stream } from '../shared/types';
+import type { Stream } from '../shared/types/index';
 import { useAuthStore } from '../stores/authStore';
 
 function StreamList() {
@@ -19,7 +19,7 @@ function StreamList() {
     try {
       setLoading(true);
       const data = await apiService.getStreams();
-      setStreams(data);
+      setStreams(data.streams);
     } catch (err) {
       setError('스트림을 불러오는데 실패했습니다');
       console.error(err);

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
+import Hls from 'hls.js';
 import CanvasCommentOverlay from './CanvasCommentOverlay';
-import { Comment } from '../shared/types';
+import type { Comment } from '../shared/types/index';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 
 interface VideoPlayerProps {
@@ -27,6 +28,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
 
+  // Wire up time/metadata handlers
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -48,6 +50,39 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
   }, [onTimeUpdate]);
+
+  // HLS playback setup
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !streamUrl) return;
+
+    // If it's an HLS URL
+    const isHls = streamUrl.endsWith('.m3u8');
+    let hls: Hls | null = null;
+
+    if (isHls) {
+      if (Hls.isSupported()) {
+        hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+        });
+        hls.loadSource(streamUrl);
+        hls.attachMedia(video);
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native HLS
+        video.src = streamUrl;
+      }
+    } else {
+      // Non-HLS sources (e.g., MP4, etc.)
+      video.src = streamUrl;
+    }
+
+    return () => {
+      if (hls) {
+        hls.destroy();
+      }
+    };
+  }, [streamUrl]);
 
   const togglePlay = () => {
     const video = videoRef.current;

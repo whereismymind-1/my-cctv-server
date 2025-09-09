@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Stream, Comment } from '../shared/types';
+import type { Stream, Comment } from '../shared/types/index';
 import { apiService } from '../shared/api/api';
 import { wsService } from '../shared/api/websocket';
 

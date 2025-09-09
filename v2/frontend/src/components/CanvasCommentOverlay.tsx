@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { Comment } from '../shared/types';
+import type { Comment } from '../shared/types/index';
 
 interface CanvasComment {
   id: string;

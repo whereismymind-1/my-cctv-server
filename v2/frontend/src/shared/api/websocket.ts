@@ -1,6 +1,7 @@
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { WS_URL, WS_EVENTS } from '../config/api';
-import {
+import type {
   Comment,
   RoomJoinedData,
   ViewerCountData,

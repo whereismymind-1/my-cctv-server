@@ -1,6 +1,7 @@
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
+import type { AxiosInstance } from 'axios';
 import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
-import {
+import type {
   AuthResponse,
   LoginForm,
   RegisterForm,
@@ -37,10 +38,17 @@ class ApiService {
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem('token');
-          window.location.href = '/login';
+        const status = error.response?.status;
+        const url: string | undefined = error.config?.url;
+
+        if (status === 401) {
+          const isAuthEndpoint = url?.includes('/api/auth/login') || url?.includes('/api/auth/register');
+          if (!isAuthEndpoint) {
+            // Only force redirect for protected endpoints, not for login/register failures
+            localStorage.removeItem('token');
+            window.location.href = '/';
+            return; // Stop further handling
+          }
         }
         return Promise.reject(error);
       }

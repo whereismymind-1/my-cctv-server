@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import CommentOverlay from './CommentOverlay';
-import { Comment } from '../shared/types';
+import { Comment } from '../shared/types/index';
 
 // Mock framer-motion to avoid animation issues in tests
 vi.mock('framer-motion', () => ({

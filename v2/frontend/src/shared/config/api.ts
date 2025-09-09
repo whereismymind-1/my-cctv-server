@@ -6,7 +6,7 @@ export const API_ENDPOINTS = {
     register: '/api/auth/register',
     login: '/api/auth/login',
     refresh: '/api/auth/refresh',
-    me: '/api/users/me',
+    me: '/api/auth/me',
   },
   streams: {
     list: '/api/streams',

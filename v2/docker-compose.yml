@@ -1,75 +1,100 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: danmaku_postgres
+    container_name: cctv-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: danmaku_live
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: ${DB_NAME:-cctv_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - danmaku_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d danmaku_live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - cctv-network
 
+  # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: danmaku_redis
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    container_name: cctv-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
     networks:
-      - danmaku_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - cctv-network
 
-  # Uncomment for production or when you want to run the backend in Docker
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: danmaku_backend
-  #   environment:
-  #     DATABASE_HOST: postgres
-  #     DATABASE_PORT: 5432
-  #     DATABASE_USER: admin
-  #     DATABASE_PASSWORD: password123
-  #     DATABASE_NAME: danmaku_live
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #     JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
-  #     NODE_ENV: ${NODE_ENV:-development}
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - danmaku_network
-  #   volumes:
-  #     - ./backend:/app
-  #     - /app/node_modules
+  # RTMP/HLS Streaming Server
+  rtmp:
+    image: alfg/nginx-rtmp
+    container_name: cctv-rtmp
+    restart: unless-stopped
+    ports:
+      - "1935:1935"    # RTMP
+      - "8080:80"      # HLS HTTP
+    volumes:
+      - ./nginx-rtmp/nginx.conf:/etc/nginx/nginx.conf:ro
+      - rtmp_data:/tmp/hls
+    networks:
+      - cctv-network
+
+  # Backend NestJS Application
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cctv-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres123}@postgres:5432/${DB_NAME:-cctv_db}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-this}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5174}
+      RTMP_URL: rtmp://rtmp:1935/live
+      HLS_URL: http://rtmp:80/hls
+    depends_on:
+      - postgres
+      - redis
+      - rtmp
+    networks:
+      - cctv-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # Frontend React Application (for development)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: cctv-frontend
+    restart: unless-stopped
+    ports:
+      - "5174:5174"
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+      VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:3000}
+    depends_on:
+      - backend
+    networks:
+      - cctv-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+networks:
+  cctv-network:
+    driver: bridge
 
 volumes:
   postgres_data:
-  redis_data:
-
-networks:
-  danmaku_network:
-    driver: bridge
+  rtmp_data:

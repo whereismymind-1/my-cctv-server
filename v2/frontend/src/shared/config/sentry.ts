@@ -1,5 +1,11 @@
 import * as Sentry from '@sentry/react';
-import { BrowserTracing } from '@sentry/react';
+import * as React from 'react';
+import {
+  useLocation,
+  useNavigationType,
+  createRoutesFromChildren,
+  matchRoutes,
+} from 'react-router-dom';
 
 export const initSentry = () => {
   // Only initialize Sentry in production
@@ -7,26 +13,18 @@ export const initSentry = () => {
     Sentry.init({
       dsn: import.meta.env.VITE_SENTRY_DSN,
       integrations: [
-        new BrowserTracing({
-          // Set 'tracePropagationTargets' to control what URLs are traced
-          tracePropagationTargets: [
-            'localhost',
-            /^https:\/\/yourserver\.io\/api/,
-          ],
-          // Capture interactions
-          routingInstrumentation: Sentry.reactRouterV6Instrumentation(
-            React.useEffect,
-            // @ts-ignore
-            window.ReactRouterDOM?.useLocation,
-            // @ts-ignore
-            window.ReactRouterDOM?.useNavigationType,
-            // @ts-ignore
-            window.ReactRouterDOM?.createRoutesFromChildren,
-            // @ts-ignore
-            window.ReactRouterDOM?.matchRoutes
-          ),
+        // Use SDK v10 integrations API
+        Sentry.reactRouterV7BrowserTracingIntegration({
+          // Configure which URLs to trace
+          tracePropagationTargets: ['localhost', /^https:\/\/yourserver\.io\/api/],
+          // Hook into React Router v7
+          useEffect: React.useEffect,
+          useLocation,
+          useNavigationType,
+          createRoutesFromChildren,
+          matchRoutes,
         }),
-        new Sentry.Replay({
+        Sentry.replayIntegration({
           // Capture 10% of all sessions
           sessionSampleRate: 0.1,
           // Capture 100% of sessions with an error
@@ -42,7 +40,7 @@ export const initSentry = () => {
       beforeSend(event, hint) {
         // Filter out specific errors if needed
         if (event.exception) {
-          const error = hint.originalException;
+          const error = (hint as any)?.originalException as { message?: string } | undefined;
           // Don't send network errors in development
           if (!import.meta.env.PROD && error?.message?.includes('Network')) {
             return null;

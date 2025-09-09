@@ -145,6 +145,8 @@ let StreamService = class StreamService {
     }
     toResponseDto(stream, currentUserId) {
         const isOwner = currentUserId === stream.ownerId;
+        const isLive = stream.status === 'live';
+        const hlsUrl = `http://localhost:8080/hls/${stream.streamKey}.m3u8`;
         return {
             id: stream.id,
             title: stream.title,
@@ -159,7 +161,7 @@ let StreamService = class StreamService {
             status: stream.status,
             settings: isOwner ? stream.settings : undefined,
             streamKey: isOwner ? stream.streamKey : undefined,
-            streamUrl: isOwner ? `rtmp://localhost/live/${stream.streamKey}` : undefined,
+            streamUrl: isLive ? hlsUrl : undefined,
             createdAt: stream.createdAt,
             startedAt: stream.startedAt ?? undefined,
             endedAt: stream.endedAt ?? undefined,

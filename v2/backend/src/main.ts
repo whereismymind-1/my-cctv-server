@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import morgan from 'morgan';
+import { GlobalExceptionFilter } from './infrastructure/filters/global-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,6 +12,19 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
   const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:5173');
+  
+  // Allow localhost:5170-5179 (Vite dev ports)
+  const vitePorts = Array.from({ length: 10 }, (_, i) => 5170 + i);
+  const allowedOrigins = [
+    ...vitePorts.map((p) => `http://localhost:${p}`),
+    ...vitePorts.map((p) => `http://127.0.0.1:${p}`),
+  ];
+  if (corsOrigin && !allowedOrigins.includes(corsOrigin)) {
+    allowedOrigins.push(corsOrigin);
+  }
+
+  // Global exception filter
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -23,9 +38,16 @@ async function bootstrap() {
     }),
   );
 
+  // HTTP request logging
+  app.use(morgan('combined'));
+
   // CORS configuration
   app.enableCors({
-    origin: corsOrigin,
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'), false);
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: 'Content-Type, Accept, Authorization',

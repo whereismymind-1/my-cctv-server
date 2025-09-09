@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Comment } from '../shared/types';
+import type { Comment } from '../shared/types/index';
 
 interface CommentOverlayProps {
   comments: Comment[];

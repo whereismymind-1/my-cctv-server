@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import CanvasCommentOverlay from './CanvasCommentOverlay';
-import { Comment } from '../shared/types';
+import type { Comment } from '../shared/types/index';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 
 interface VideoPlayerProps {
