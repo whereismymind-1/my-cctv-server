@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import morgan from 'morgan';
+import helmet from 'helmet';
 import { GlobalExceptionFilter } from './infrastructure/filters/global-exception.filter';
 
 async function bootstrap() {
@@ -37,6 +38,20 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "ws:", "wss:"],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // Allow embedding for streams
+  }));
 
   // HTTP request logging
   app.use(morgan('combined'));

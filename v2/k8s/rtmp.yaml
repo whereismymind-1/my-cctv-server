@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rtmp-config
+  namespace: cctv-streaming
+data:
+  nginx.conf: |
+    worker_processes auto;
+    rtmp_auto_push on;
+    events {
+        worker_connections 1024;
+    }
+    
+    rtmp {
+        server {
+            listen 1935;
+            chunk_size 4096;
+            
+            application live {
+                live on;
+                record off;
+                
+                hls on;
+                hls_path /tmp/hls;
+                hls_fragment 3;
+                hls_playlist_length 60;
+                
+                allow publish all;
+                allow play all;
+                
+                on_publish http://backend:3000/api/streams/rtmp/on-publish;
+                on_publish_done http://backend:3000/api/streams/rtmp/on-publish-done;
+            }
+        }
+    }
+    
+    http {
+        sendfile off;
+        tcp_nopush on;
+        directio 512;
+        default_type application/octet-stream;
+        
+        server {
+            listen 80;
+            
+            location /hls {
+                types {
+                    application/vnd.apple.mpegurl m3u8;
+                    video/mp2t ts;
+                }
+                root /tmp;
+                add_header Cache-Control no-cache;
+                add_header Access-Control-Allow-Origin *;
+            }
+            
+            location /stat {
+                rtmp_stat all;
+                rtmp_stat_stylesheet stat.xsl;
+            }
+            
+            location /stat.xsl {
+                root /usr/local/nginx/html;
+            }
+        }
+    }
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rtmp
+  namespace: cctv-streaming
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rtmp
+  template:
+    metadata:
+      labels:
+        app: rtmp
+    spec:
+      containers:
+      - name: rtmp
+        image: alfg/nginx-rtmp:latest
+        ports:
+        - containerPort: 1935
+          name: rtmp
+        - containerPort: 80
+          name: http
+        volumeMounts:
+        - name: rtmp-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: hls-data
+          mountPath: /tmp/hls
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /stat
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /stat
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: rtmp-config
+        configMap:
+          name: rtmp-config
+      - name: hls-data
+        emptyDir: {}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: rtmp
+  namespace: cctv-streaming
+spec:
+  selector:
+    app: rtmp
+  ports:
+  - port: 1935
+    targetPort: 1935
+    name: rtmp
+    protocol: TCP
+  - port: 80
+    targetPort: 80
+    name: http
+    protocol: TCP
+  type: LoadBalancer

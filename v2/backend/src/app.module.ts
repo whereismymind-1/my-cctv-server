@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { CustomThrottlerGuard } from './infrastructure/guards/throttle.guard';
 
 // Layered Architecture Modules
 import { DomainModule } from './domain/domain.module';
@@ -29,6 +32,12 @@ import { getDatabaseConfig } from './infrastructure/config/database.config';
       envFilePath: '.env',
     }),
     
+    // Rate limiting configuration
+    ThrottlerModule.forRoot({
+      ttl: 60, // Time window in seconds
+      limit: 60, // Number of requests per time window
+    }),
+    
     // Database configuration
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -43,6 +52,12 @@ import { getDatabaseConfig } from './infrastructure/config/database.config';
     PresentationModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

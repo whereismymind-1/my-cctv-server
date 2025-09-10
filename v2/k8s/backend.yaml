@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: cctv-streaming
+data:
+  NODE_ENV: production
+  PORT: "3000"
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: cctv_db
+  DB_USER: postgres
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  RTMP_URL: rtmp://rtmp:1935/live
+  HLS_URL: http://rtmp:80/hls
+  THROTTLE_TTL: "60"
+  THROTTLE_LIMIT: "60"
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: cctv-streaming
+type: Opaque
+data:
+  DB_PASSWORD: cG9zdGdyZXMxMjM0NQ==  # base64 encoded
+  REDIS_PASSWORD: cmVkaXMxMjM0NQ==    # base64 encoded
+  JWT_SECRET: c3VwZXItc2VjcmV0LWp3dC1rZXktY2hhbmdlLXRoaXMtaW4tcHJvZHVjdGlvbg==  # base64 encoded
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: cctv-streaming
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done;']
+      - name: wait-for-redis
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z redis 6379; do echo waiting for redis; sleep 2; done;']
+      containers:
+      - name: backend
+        image: ghcr.io/your-org/cctv-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: backend-config
+        - secretRef:
+            name: backend-secret
+        env:
+        - name: DATABASE_URL
+          value: postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: cctv-streaming
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: cctv-streaming
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
